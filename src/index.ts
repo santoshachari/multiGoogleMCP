@@ -32,7 +32,7 @@ async function getAuthClient(email: string) {
     const oauth2Client = new google.auth.OAuth2(
         client_id,
         client_secret,
-        redirect_uris ? redirect_uris[0] : 'http://localhost:3000/oauth2callback'
+        redirect_uris ? redirect_uris[0] : 'http://localhost:9874/oauth2callback'
     );
 
     oauth2Client.setCredentials({ refresh_token: account.refresh_token });

@@ -65,7 +65,7 @@ async function authenticate(readonly: boolean = false, draftOnly: boolean = fals
         const credentials = JSON.parse(credentialsRaw);
         const { client_secret, client_id, redirect_uris } = credentials.installed || credentials.web;
 
-        const redirectUri = (redirect_uris && redirect_uris.length > 0) ? redirect_uris[0] : 'http://localhost:3000/oauth2callback';
+        const redirectUri = (redirect_uris && redirect_uris.length > 0) ? redirect_uris[0] : 'http://localhost:9874/oauth2callback';
 
         // Parse the URL to get the port and path dynamically based on whatever the user set in GCP
         const parsedUrl = new URL(redirectUri);
