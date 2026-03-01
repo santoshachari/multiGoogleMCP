@@ -1,0 +1,6 @@
+node_modules/
+build/
+credentials.json
+tokens.json
+.mcp.json
+.claude/
