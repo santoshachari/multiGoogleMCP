@@ -178,6 +178,68 @@ const TOOLS: Tool[] = [
         }
     },
     {
+        name: "chat_list_spaces",
+        description: "List Google Chat spaces (rooms and direct messages) the account belongs to.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: {
+                    type: "string",
+                    description: "The authenticated Google account to list spaces for."
+                },
+                maxResults: {
+                    type: "number",
+                    description: "Maximum number of spaces to return (default: 25)."
+                }
+            },
+            required: ["email"]
+        }
+    },
+    {
+        name: "chat_list_messages",
+        description: "List recent messages in a Google Chat space.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: {
+                    type: "string",
+                    description: "The authenticated Google account to use."
+                },
+                spaceName: {
+                    type: "string",
+                    description: "The space resource name (e.g. 'spaces/XXXXXX'). Get this from chat_list_spaces."
+                },
+                maxResults: {
+                    type: "number",
+                    description: "Maximum number of messages to return (default: 25)."
+                }
+            },
+            required: ["email", "spaceName"]
+        }
+    },
+    {
+        name: "chat_send_message",
+        description: "Send a message to a Google Chat space.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: {
+                    type: "string",
+                    description: "The authenticated Google account to send from."
+                },
+                spaceName: {
+                    type: "string",
+                    description: "The space resource name (e.g. 'spaces/XXXXXX'). Get this from chat_list_spaces."
+                },
+                text: {
+                    type: "string",
+                    description: "The message text to send."
+                }
+            },
+            required: ["email", "spaceName", "text"]
+        }
+    },
+    {
         name: "gmail_reply",
         description: "Reply to an email within its existing thread. Use gmail_read to obtain the threadId, messageId (Message-ID header), and references before calling this tool.",
         inputSchema: {
@@ -478,6 +540,73 @@ async function replyToEmail(
 }
 
 
+// --- Google Chat Implementations ---
+
+async function chatListSpaces(email: string, maxResults: number = 25) {
+    const { client } = await getAuthClient(email);
+    const chat = google.chat({ version: 'v1', auth: client });
+
+    const response = await chat.spaces.list({ pageSize: maxResults });
+    const spaces = response.data.spaces;
+
+    if (!spaces || spaces.length === 0) {
+        return "No spaces found for this account.";
+    }
+
+    const result = spaces.map(s => ({
+        name: s.name,
+        displayName: s.displayName || '(Direct Message)',
+        type: s.spaceType,
+    }));
+
+    return JSON.stringify(result, null, 2);
+}
+
+async function chatListMessages(email: string, spaceName: string, maxResults: number = 25) {
+    const { client } = await getAuthClient(email);
+    const chat = google.chat({ version: 'v1', auth: client });
+
+    const response = await chat.spaces.messages.list({
+        parent: spaceName,
+        pageSize: maxResults,
+        orderBy: 'createTime desc'
+    });
+
+    const messages = response.data.messages;
+    if (!messages || messages.length === 0) {
+        return "No messages found in this space.";
+    }
+
+    const result = messages.map(m => ({
+        name: m.name,
+        sender: m.sender?.displayName || m.sender?.name || 'Unknown',
+        text: m.text || m.formattedText || '',
+        createTime: m.createTime,
+    }));
+
+    return JSON.stringify(result, null, 2);
+}
+
+async function chatSendMessage(email: string, spaceName: string, text: string) {
+    const { client, isReadonly, isDraftOnly } = await getAuthClient(email);
+    if (isReadonly) {
+        throw new Error(`Cannot send Chat messages from ${email}: Account is configured in Read-Only mode.`);
+    }
+    if (isDraftOnly) {
+        throw new Error(`Cannot send Chat messages from ${email}: Account is configured in Draft-Only mode.`);
+    }
+
+    const chat = google.chat({ version: 'v1', auth: client });
+
+    const response = await chat.spaces.messages.create({
+        parent: spaceName,
+        requestBody: { text }
+    });
+
+    return `Message sent successfully. Message name: ${response.data.name}`;
+}
+
+
 // --- Server Handlers ---
 
 server.setRequestHandler(ListToolsRequestSchema, async () => {
@@ -517,6 +646,24 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                     throw new Error("Missing or invalid arguments for gmail_send.");
                 }
                 result = await sendEmail(args.email, args.to, args.subject, args.body, args.contentType as 'text' | 'markdown' | 'html' | undefined);
+                break;
+            case "chat_list_spaces":
+                if (!args || typeof args.email !== 'string') {
+                    throw new Error("Missing or invalid arguments for chat_list_spaces.");
+                }
+                result = await chatListSpaces(args.email, typeof args.maxResults === 'number' ? args.maxResults : 25);
+                break;
+            case "chat_list_messages":
+                if (!args || typeof args.email !== 'string' || typeof args.spaceName !== 'string') {
+                    throw new Error("Missing or invalid arguments for chat_list_messages.");
+                }
+                result = await chatListMessages(args.email, args.spaceName, typeof args.maxResults === 'number' ? args.maxResults : 25);
+                break;
+            case "chat_send_message":
+                if (!args || typeof args.email !== 'string' || typeof args.spaceName !== 'string' || typeof args.text !== 'string') {
+                    throw new Error("Missing or invalid arguments for chat_send_message.");
+                }
+                result = await chatSendMessage(args.email, args.spaceName, args.text);
                 break;
             case "gmail_reply":
                 if (!args || typeof args.email !== 'string' || typeof args.threadId !== 'string' || typeof args.inReplyTo !== 'string' || typeof args.to !== 'string' || typeof args.subject !== 'string' || typeof args.body !== 'string') {
