@@ -143,15 +143,8 @@ async function authenticate(readonly: boolean = false, draftOnly: boolean = fals
                 throw new Error('Failed to generate authentication URL.');
             }
 
-            console.log('Opening browser to Google authorization page...');
-            import('open').then(openModule => {
-                const open = openModule.default;
-                open(url);
-            }).catch(err => {
-                console.error('Failed to open browser:', err);
-                console.log('Please open the following URL in your browser to authorize the application:');
-                console.log(url);
-            });
+            console.log('Please open the following URL in your browser to authorize the application:');
+            console.log(url);
         });
 
     } catch (error) {

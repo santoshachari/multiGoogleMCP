@@ -240,6 +240,50 @@ const TOOLS: Tool[] = [
         }
     },
     {
+        name: "gmail_get_attachment",
+        description: "Download an attachment from a Gmail message. Use gmail_read first to get the attachmentId from the attachments list.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: {
+                    type: "string",
+                    description: "The Gmail address the email belongs to."
+                },
+                messageId: {
+                    type: "string",
+                    description: "The Gmail message ID containing the attachment (id field from gmail_search or gmail_read)."
+                },
+                attachmentId: {
+                    type: "string",
+                    description: "The attachment ID from the attachments array in gmail_read output."
+                },
+                filename: {
+                    type: "string",
+                    description: "The filename of the attachment (from gmail_read attachments list, optional but helpful)."
+                }
+            },
+            required: ["email", "messageId", "attachmentId"]
+        }
+    },
+    {
+        name: "gmail_read_thread",
+        description: "Read all messages in a Gmail thread/conversation in chronological order.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: {
+                    type: "string",
+                    description: "The Gmail address the thread belongs to."
+                },
+                threadId: {
+                    type: "string",
+                    description: "The thread ID (from gmail_read threadId field or gmail_search threadId field)."
+                }
+            },
+            required: ["email", "threadId"]
+        }
+    },
+    {
         name: "gmail_reply",
         description: "Reply to an email within its existing thread. Use gmail_read to obtain the threadId, messageId (Message-ID header), and references before calling this tool.",
         inputSchema: {
@@ -355,6 +399,46 @@ async function searchEmails(email: string, query: string, maxResults: number = 1
     return JSON.stringify(validMessages, null, 2);
 }
 
+function extractText(part: any): string {
+    if (part.mimeType === 'text/plain' && part.body?.data) {
+        return Buffer.from(part.body.data, 'base64').toString('utf-8');
+    }
+
+    if (part.parts) {
+        for (const p of part.parts) {
+            const text = extractText(p);
+            if (text) return text;
+        }
+    }
+
+    // Fallback to html if no plain text
+    if (part.mimeType === 'text/html' && part.body?.data) {
+        const html = Buffer.from(part.body.data, 'base64').toString('utf-8');
+        return html.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+            .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+            .replace(/<[^>]+>/g, ' ')
+            .replace(/\s+/g, ' ').trim();
+    }
+
+    return "";
+}
+
+function collectAttachments(part: any, acc: Array<{ filename: string; mimeType: string; size: number; attachmentId: string }>) {
+    if (part.filename && part.body?.attachmentId) {
+        acc.push({
+            filename: part.filename,
+            mimeType: part.mimeType || 'application/octet-stream',
+            size: part.body.size || 0,
+            attachmentId: part.body.attachmentId,
+        });
+    }
+    if (part.parts) {
+        for (const p of part.parts) {
+            collectAttachments(p, acc);
+        }
+    }
+}
+
 async function readEmail(email: string, messageId: string) {
     const { client } = await getAuthClient(email);
     const gmail = google.gmail({ version: 'v1', auth: client });
@@ -368,37 +452,13 @@ async function readEmail(email: string, messageId: string) {
     const payload = response.data.payload;
     if (!payload) return "Could not retrieve email payload.";
 
-    // Simple helper to extract plain text
-    function extractText(part: any): string {
-        if (part.mimeType === 'text/plain' && part.body?.data) {
-            return Buffer.from(part.body.data, 'base64').toString('utf-8');
-        }
-
-        if (part.parts) {
-            for (const p of part.parts) {
-                const text = extractText(p);
-                if (text) return text;
-            }
-        }
-
-        // Fallback to html if no plain text
-        if (part.mimeType === 'text/html' && part.body?.data) {
-            const html = Buffer.from(part.body.data, 'base64').toString('utf-8');
-            // Extremely rough HTML strip just so it's readable to LLM
-            return html.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-                .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-                .replace(/<[^>]+>/g, ' ')
-                .replace(/\s+/g, ' ').trim();
-        }
-
-        return "";
-    }
-
     let textContent = extractText(payload);
-
     if (!textContent && response.data.snippet) {
-        textContent = response.data.snippet; // Fallback to snippet
+        textContent = response.data.snippet;
     }
+
+    const attachments: Array<{ filename: string; mimeType: string; size: number; attachmentId: string }> = [];
+    collectAttachments(payload, attachments);
 
     const headers = payload.headers || [];
     const subject = headers.find(h => h.name === 'Subject')?.value || 'No Subject';
@@ -409,7 +469,63 @@ async function readEmail(email: string, messageId: string) {
     const references = headers.find(h => h.name === 'References')?.value || '';
     const threadId = response.data.threadId || '';
 
-    return `From: ${from}\nTo: ${to}\nDate: ${date}\nSubject: ${subject}\nMessage-ID: ${rfcMessageId}\nThread-ID: ${threadId}\nReferences: ${references}\n\n${textContent}`;
+    return JSON.stringify({ from, to, date, subject, messageId: rfcMessageId, threadId, references, body: textContent, attachments }, null, 2);
+}
+
+async function getAttachment(email: string, messageId: string, attachmentId: string, filename?: string) {
+    const { client } = await getAuthClient(email);
+    const gmail = google.gmail({ version: 'v1', auth: client });
+
+    const res = await gmail.users.messages.attachments.get({
+        userId: 'me',
+        messageId,
+        id: attachmentId,
+    });
+
+    return JSON.stringify({
+        filename: filename || 'attachment',
+        size: res.data.size,
+        data: res.data.data, // base64url encoded
+    });
+}
+
+async function readThread(email: string, threadId: string) {
+    const { client } = await getAuthClient(email);
+    const gmail = google.gmail({ version: 'v1', auth: client });
+
+    const response = await gmail.users.threads.get({
+        userId: 'me',
+        id: threadId,
+        format: 'full',
+    });
+
+    const messages = response.data.messages;
+    if (!messages || messages.length === 0) {
+        return "No messages found in thread.";
+    }
+
+    const result = messages.map(msg => {
+        const payload = msg.payload;
+        if (!payload) return { messageId: msg.id, error: 'No payload' };
+
+        const headers = payload.headers || [];
+        const attachments: Array<{ filename: string; mimeType: string; size: number; attachmentId: string }> = [];
+        collectAttachments(payload, attachments);
+
+        return {
+            id: msg.id,
+            threadId: msg.threadId,
+            from: headers.find(h => h.name === 'From')?.value || '',
+            to: headers.find(h => h.name === 'To')?.value || '',
+            date: headers.find(h => h.name === 'Date')?.value || '',
+            subject: headers.find(h => h.name === 'Subject')?.value || '',
+            messageId: headers.find(h => h.name === 'Message-ID')?.value || '',
+            body: extractText(payload) || msg.snippet || '',
+            attachments,
+        };
+    });
+
+    return JSON.stringify(result, null, 2);
 }
 
 async function createRawEmail(opts: { to: string; subject: string; body: string; inReplyTo?: string; references?: string; contentType?: 'text' | 'markdown' | 'html' }): Promise<string> {
@@ -664,6 +780,18 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                     throw new Error("Missing or invalid arguments for chat_send_message.");
                 }
                 result = await chatSendMessage(args.email, args.spaceName, args.text);
+                break;
+            case "gmail_get_attachment":
+                if (!args || typeof args.email !== 'string' || typeof args.messageId !== 'string' || typeof args.attachmentId !== 'string') {
+                    throw new Error("Missing or invalid arguments for gmail_get_attachment.");
+                }
+                result = await getAttachment(args.email, args.messageId, args.attachmentId, typeof args.filename === 'string' ? args.filename : undefined);
+                break;
+            case "gmail_read_thread":
+                if (!args || typeof args.email !== 'string' || typeof args.threadId !== 'string') {
+                    throw new Error("Missing or invalid arguments for gmail_read_thread.");
+                }
+                result = await readThread(args.email, args.threadId);
                 break;
             case "gmail_reply":
                 if (!args || typeof args.email !== 'string' || typeof args.threadId !== 'string' || typeof args.inReplyTo !== 'string' || typeof args.to !== 'string' || typeof args.subject !== 'string' || typeof args.body !== 'string') {
