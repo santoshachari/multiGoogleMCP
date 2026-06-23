@@ -135,7 +135,12 @@ async function authenticate(readonly: boolean = false, draftOnly: boolean = fals
             }
         });
 
-        server = app.listen(port, () => {
+        server = app.listen(port, (err?: any) => {
+            if (err) {
+                console.error(`\n[!] Failed to start local server on port ${port}.`);
+                console.error(`Error details:`, err.message || err);
+                process.exit(1);
+            }
             console.log(`Waiting for authorization on port ${port}...`);
             const url = Array.isArray(authUrl) ? authUrl[0] : authUrl;
 
