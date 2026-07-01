@@ -127,7 +127,7 @@ const TOOLS: Tool[] = [
                 },
                 to: {
                     type: "string",
-                    description: "Recipient email address."
+                    description: "Recipient email address. Multiple addresses can be comma-separated."
                 },
                 subject: {
                     type: "string",
@@ -135,12 +135,33 @@ const TOOLS: Tool[] = [
                 },
                 body: {
                     type: "string",
-                    description: "Body content of the email (plain text)."
+                    description: "Body content of the email."
+                },
+                cc: {
+                    type: "string",
+                    description: "CC recipients. Multiple addresses can be comma-separated."
+                },
+                bcc: {
+                    type: "string",
+                    description: "BCC recipients. Multiple addresses can be comma-separated."
                 },
                 contentType: {
                     type: "string",
                     enum: ["text", "markdown", "html"],
                     description: "Content format: 'text' (plain text, default), 'markdown' (converted to HTML), or 'html' (raw HTML)."
+                },
+                attachments: {
+                    type: "array",
+                    description: "Files to attach to the email.",
+                    items: {
+                        type: "object",
+                        properties: {
+                            filename: { type: "string", description: "Name of the file as it will appear in the email." },
+                            data: { type: "string", description: "Base64-encoded file content." },
+                            mimeType: { type: "string", description: "MIME type of the file, e.g. 'application/pdf' or 'image/png'." }
+                        },
+                        required: ["filename", "data", "mimeType"]
+                    }
                 }
             },
             required: ["email", "to", "subject", "body"]
@@ -158,7 +179,7 @@ const TOOLS: Tool[] = [
                 },
                 to: {
                     type: "string",
-                    description: "Recipient email address."
+                    description: "Recipient email address. Multiple addresses can be comma-separated."
                 },
                 subject: {
                     type: "string",
@@ -166,12 +187,33 @@ const TOOLS: Tool[] = [
                 },
                 body: {
                     type: "string",
-                    description: "Body content of the email (plain text)."
+                    description: "Body content of the email."
+                },
+                cc: {
+                    type: "string",
+                    description: "CC recipients. Multiple addresses can be comma-separated."
+                },
+                bcc: {
+                    type: "string",
+                    description: "BCC recipients. Multiple addresses can be comma-separated."
                 },
                 contentType: {
                     type: "string",
                     enum: ["text", "markdown", "html"],
                     description: "Content format: 'text' (plain text, default), 'markdown' (converted to HTML), or 'html' (raw HTML)."
+                },
+                attachments: {
+                    type: "array",
+                    description: "Files to attach to the email.",
+                    items: {
+                        type: "object",
+                        properties: {
+                            filename: { type: "string", description: "Name of the file as it will appear in the email." },
+                            data: { type: "string", description: "Base64-encoded file content." },
+                            mimeType: { type: "string", description: "MIME type of the file, e.g. 'application/pdf' or 'image/png'." }
+                        },
+                        required: ["filename", "data", "mimeType"]
+                    }
                 }
             },
             required: ["email", "to", "subject", "body"]
@@ -325,6 +367,27 @@ const TOOLS: Tool[] = [
                     type: "string",
                     enum: ["text", "markdown", "html"],
                     description: "Content format: 'text' (plain text, default), 'markdown' (converted to HTML), or 'html' (raw HTML)."
+                },
+                cc: {
+                    type: "string",
+                    description: "CC recipients. Multiple addresses can be comma-separated."
+                },
+                bcc: {
+                    type: "string",
+                    description: "BCC recipients. Multiple addresses can be comma-separated."
+                },
+                attachments: {
+                    type: "array",
+                    description: "Files to attach to the reply.",
+                    items: {
+                        type: "object",
+                        properties: {
+                            filename: { type: "string", description: "Name of the file as it will appear in the email." },
+                            data: { type: "string", description: "Base64-encoded file content." },
+                            mimeType: { type: "string", description: "MIME type of the file, e.g. 'application/pdf' or 'image/png'." }
+                        },
+                        required: ["filename", "data", "mimeType"]
+                    }
                 }
             },
             required: ["email", "threadId", "inReplyTo", "to", "subject", "body"]
@@ -528,40 +591,85 @@ async function readThread(email: string, threadId: string) {
     return JSON.stringify(result, null, 2);
 }
 
-async function createRawEmail(opts: { to: string; subject: string; body: string; inReplyTo?: string; references?: string; contentType?: 'text' | 'markdown' | 'html' }): Promise<string> {
+interface EmailAttachment {
+    filename: string;
+    // base64-encoded file content
+    data: string;
+    // MIME type, e.g. "application/pdf" or "image/png"
+    mimeType: string;
+}
+
+async function createRawEmail(opts: {
+    to: string;
+    subject: string;
+    body: string;
+    cc?: string;
+    bcc?: string;
+    inReplyTo?: string;
+    references?: string;
+    contentType?: 'text' | 'markdown' | 'html';
+    attachments?: EmailAttachment[];
+}): Promise<string> {
     const format = opts.contentType || 'text';
-    let contentTypeHeader: string;
+    let bodyMimeType: string;
     let emailBody: string;
 
     if (format === 'markdown') {
-        contentTypeHeader = 'Content-Type: text/html; charset=utf-8';
+        bodyMimeType = 'text/html';
         emailBody = await marked.parse(opts.body);
     } else if (format === 'html') {
-        contentTypeHeader = 'Content-Type: text/html; charset=utf-8';
+        bodyMimeType = 'text/html';
         emailBody = opts.body;
     } else {
-        contentTypeHeader = 'Content-Type: text/plain; charset=utf-8';
+        bodyMimeType = 'text/plain';
         emailBody = opts.body;
     }
 
-    const messageParts = [
+    const boundary = `----=_Part_${Math.random().toString(36).slice(2)}`;
+    const hasAttachments = opts.attachments && opts.attachments.length > 0;
+
+    const headers: string[] = [
         `To: ${opts.to}`,
-        contentTypeHeader,
         'MIME-Version: 1.0',
         `Subject: =?utf-8?B?${Buffer.from(opts.subject).toString('base64')}?=`,
     ];
-    if (opts.inReplyTo) {
-        messageParts.push(`In-Reply-To: ${opts.inReplyTo}`);
+    if (opts.cc) headers.push(`Cc: ${opts.cc}`);
+    if (opts.bcc) headers.push(`Bcc: ${opts.bcc}`);
+    if (opts.inReplyTo) headers.push(`In-Reply-To: ${opts.inReplyTo}`);
+    if (opts.references) headers.push(`References: ${opts.references}`);
+
+    let message: string;
+
+    if (hasAttachments) {
+        headers.push(`Content-Type: multipart/mixed; boundary="${boundary}"`);
+        const parts: string[] = [
+            `--${boundary}`,
+            `Content-Type: ${bodyMimeType}; charset=utf-8`,
+            'Content-Transfer-Encoding: base64',
+            '',
+            Buffer.from(emailBody).toString('base64'),
+        ];
+        for (const att of opts.attachments!) {
+            parts.push(
+                `--${boundary}`,
+                `Content-Type: ${att.mimeType}; name="${att.filename}"`,
+                'Content-Transfer-Encoding: base64',
+                `Content-Disposition: attachment; filename="${att.filename}"`,
+                '',
+                att.data,
+            );
+        }
+        parts.push(`--${boundary}--`);
+        message = [...headers, '', ...parts].join('\n');
+    } else {
+        headers.push(`Content-Type: ${bodyMimeType}; charset=utf-8`);
+        message = [...headers, '', emailBody].join('\n');
     }
-    if (opts.references) {
-        messageParts.push(`References: ${opts.references}`);
-    }
-    messageParts.push('', emailBody);
-    const message = messageParts.join('\n');
+
     return Buffer.from(message).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-async function draftEmail(email: string, to: string, subject: string, body: string, contentType?: 'text' | 'markdown' | 'html') {
+async function draftEmail(email: string, to: string, subject: string, body: string, contentType?: 'text' | 'markdown' | 'html', cc?: string, bcc?: string, attachments?: EmailAttachment[]) {
     const { client, isReadonly } = await getAuthClient(email);
     if (isReadonly) {
         throw new Error(`Cannot draft emails from ${email}: Account is configured in Read-Only mode.`);
@@ -569,7 +677,7 @@ async function draftEmail(email: string, to: string, subject: string, body: stri
 
     const gmail = google.gmail({ version: 'v1', auth: client });
 
-    const raw = await createRawEmail({ to, subject, body, contentType });
+    const raw = await createRawEmail({ to, subject, body, contentType, cc, bcc, attachments });
 
     const response = await gmail.users.drafts.create({
         userId: 'me',
@@ -583,7 +691,7 @@ async function draftEmail(email: string, to: string, subject: string, body: stri
     return `Draft created successfully. Draft ID: ${response.data.id}`;
 }
 
-async function sendEmail(email: string, to: string, subject: string, body: string, contentType?: 'text' | 'markdown' | 'html') {
+async function sendEmail(email: string, to: string, subject: string, body: string, contentType?: 'text' | 'markdown' | 'html', cc?: string, bcc?: string, attachments?: EmailAttachment[]) {
     const { client, isReadonly, isDraftOnly } = await getAuthClient(email);
     if (isReadonly) {
         throw new Error(`Cannot send emails from ${email}: Account is configured in Read-Only mode.`);
@@ -594,7 +702,7 @@ async function sendEmail(email: string, to: string, subject: string, body: strin
 
     const gmail = google.gmail({ version: 'v1', auth: client });
 
-    const raw = await createRawEmail({ to, subject, body, contentType });
+    const raw = await createRawEmail({ to, subject, body, contentType, cc, bcc, attachments });
 
     const response = await gmail.users.messages.send({
         userId: 'me',
@@ -615,7 +723,10 @@ async function replyToEmail(
     body: string,
     references?: string,
     isDraft?: boolean,
-    contentType?: 'text' | 'markdown' | 'html'
+    contentType?: 'text' | 'markdown' | 'html',
+    cc?: string,
+    bcc?: string,
+    attachments?: EmailAttachment[]
 ) {
     const { client, isReadonly, isDraftOnly } = await getAuthClient(email);
     if (isReadonly) {
@@ -630,7 +741,7 @@ async function replyToEmail(
     // Build the full references chain
     const refsChain = references ? `${references} ${inReplyTo}` : inReplyTo;
 
-    const raw = await createRawEmail({ to, subject, body, inReplyTo, references: refsChain, contentType });
+    const raw = await createRawEmail({ to, subject, body, inReplyTo, references: refsChain, contentType, cc, bcc, attachments });
 
     if (isDraft) {
         const response = await gmail.users.drafts.create({
@@ -755,13 +866,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 if (!args || typeof args.email !== 'string' || typeof args.to !== 'string' || typeof args.subject !== 'string' || typeof args.body !== 'string') {
                     throw new Error("Missing or invalid arguments for gmail_draft.");
                 }
-                result = await draftEmail(args.email, args.to, args.subject, args.body, args.contentType as 'text' | 'markdown' | 'html' | undefined);
+                result = await draftEmail(args.email, args.to, args.subject, args.body, args.contentType as 'text' | 'markdown' | 'html' | undefined, typeof args.cc === 'string' ? args.cc : undefined, typeof args.bcc === 'string' ? args.bcc : undefined, Array.isArray(args.attachments) ? args.attachments : undefined);
                 break;
             case "gmail_send":
                 if (!args || typeof args.email !== 'string' || typeof args.to !== 'string' || typeof args.subject !== 'string' || typeof args.body !== 'string') {
                     throw new Error("Missing or invalid arguments for gmail_send.");
                 }
-                result = await sendEmail(args.email, args.to, args.subject, args.body, args.contentType as 'text' | 'markdown' | 'html' | undefined);
+                result = await sendEmail(args.email, args.to, args.subject, args.body, args.contentType as 'text' | 'markdown' | 'html' | undefined, typeof args.cc === 'string' ? args.cc : undefined, typeof args.bcc === 'string' ? args.bcc : undefined, Array.isArray(args.attachments) ? args.attachments : undefined);
                 break;
             case "chat_list_spaces":
                 if (!args || typeof args.email !== 'string') {
@@ -806,7 +917,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                     args.body,
                     typeof args.references === 'string' ? args.references : undefined,
                     typeof args.isDraft === 'boolean' ? args.isDraft : false,
-                    args.contentType as 'text' | 'markdown' | 'html' | undefined
+                    args.contentType as 'text' | 'markdown' | 'html' | undefined,
+                    typeof args.cc === 'string' ? args.cc : undefined,
+                    typeof args.bcc === 'string' ? args.bcc : undefined,
+                    Array.isArray(args.attachments) ? args.attachments : undefined
                 );
                 break;
             default:
