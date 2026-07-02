@@ -843,7 +843,7 @@ async function draftEmail(email: string, to: string, subject: string, body: stri
 
     const gmail = google.gmail({ version: 'v1', auth: client });
 
-    const raw = await createRawEmail({ to, subject, body, contentType, cc, bcc, attachments });
+    const raw = await createRawEmail({ to, subject, body, from: email, contentType, cc, bcc, attachments });
 
     const response = await gmail.users.drafts.create({
         userId: 'me',
@@ -868,7 +868,7 @@ async function sendEmail(email: string, to: string, subject: string, body: strin
 
     const gmail = google.gmail({ version: 'v1', auth: client });
 
-    const raw = await createRawEmail({ to, subject, body, contentType, cc, bcc, attachments });
+    const raw = await createRawEmail({ to, subject, body, from: email, contentType, cc, bcc, attachments });
 
     const response = await gmail.users.messages.send({
         userId: 'me',
@@ -907,7 +907,7 @@ async function replyToEmail(
     // Build the full references chain
     const refsChain = references ? `${references} ${inReplyTo}` : inReplyTo;
 
-    const raw = await createRawEmail({ to, subject, body, inReplyTo, references: refsChain, contentType, cc, bcc, attachments });
+    const raw = await createRawEmail({ to, subject, body, from: email, inReplyTo, references: refsChain, contentType, cc, bcc, attachments });
 
     if (isDraft) {
         const response = await gmail.users.drafts.create({
@@ -961,7 +961,7 @@ async function forwardEmail(
     const fwdSuffix = `\n\n---------- Forwarded message ----------\nFrom: ${origFrom}\nDate: ${origDate}\nSubject: ${origSubject}\n\n${origBody}`;
     const fullBody = body + fwdSuffix;
 
-    const raw = await createRawEmail({ to, subject, body: fullBody, cc, bcc, contentType, attachments });
+    const raw = await createRawEmail({ to, subject, body: fullBody, from: email, cc, bcc, contentType, attachments });
     const response = await gmail.users.messages.send({ userId: 'me', requestBody: { raw } });
     return `Email forwarded successfully. Message ID: ${response.data.id}, Thread ID: ${response.data.threadId}`;
 }
