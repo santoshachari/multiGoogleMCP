@@ -688,7 +688,7 @@ async function draftEmail(email: string, to: string, subject: string, body: stri
         }
     });
 
-    return `Draft created successfully. Draft ID: ${response.data.id}`;
+    return `Draft created successfully. Draft ID: ${response.data.id}, Thread ID: ${response.data.message?.threadId ?? 'unknown'}`;
 }
 
 async function sendEmail(email: string, to: string, subject: string, body: string, contentType?: 'text' | 'markdown' | 'html', cc?: string, bcc?: string, attachments?: EmailAttachment[]) {
@@ -711,7 +711,7 @@ async function sendEmail(email: string, to: string, subject: string, body: strin
         }
     });
 
-    return `Email sent successfully. Message ID: ${response.data.id}`;
+    return `Email sent successfully. Message ID: ${response.data.id}, Thread ID: ${response.data.threadId}`;
 }
 
 async function replyToEmail(
@@ -753,7 +753,7 @@ async function replyToEmail(
                 }
             }
         });
-        return `Draft reply created successfully. Draft ID: ${response.data.id}`;
+        return `Draft reply created successfully. Draft ID: ${response.data.id}, Thread ID: ${response.data.message?.threadId ?? 'unknown'}`;
     } else {
         const response = await gmail.users.messages.send({
             userId: 'me',
@@ -762,7 +762,7 @@ async function replyToEmail(
                 threadId
             }
         });
-        return `Reply sent successfully. Message ID: ${response.data.id}`;
+        return `Reply sent successfully. Message ID: ${response.data.id}, Thread ID: ${response.data.threadId}`;
     }
 }
 
