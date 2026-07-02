@@ -392,6 +392,170 @@ const TOOLS: Tool[] = [
             },
             required: ["email", "threadId", "inReplyTo", "to", "subject", "body"]
         }
+    },
+    {
+        name: "gmail_forward",
+        description: "Forward an email to new recipients. Use gmail_read first to get the original message content.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The Gmail address to forward from." },
+                to: { type: "string", description: "Recipient email address(es), comma-separated." },
+                subject: { type: "string", description: "Subject of the forwarded email (usually 'Fwd: <original subject>')." },
+                body: { type: "string", description: "Body content to prepend before the forwarded message." },
+                originalMessageId: { type: "string", description: "The Gmail message ID of the email to forward (from gmail_search or gmail_read)." },
+                cc: { type: "string", description: "CC recipients, comma-separated." },
+                bcc: { type: "string", description: "BCC recipients, comma-separated." },
+                contentType: { type: "string", enum: ["text", "markdown", "html"], description: "Content format for the prepended body." },
+                attachments: {
+                    type: "array",
+                    description: "Additional files to attach.",
+                    items: {
+                        type: "object",
+                        properties: {
+                            filename: { type: "string" },
+                            data: { type: "string", description: "Base64-encoded file content." },
+                            mimeType: { type: "string" }
+                        },
+                        required: ["filename", "data", "mimeType"]
+                    }
+                }
+            },
+            required: ["email", "to", "subject", "body", "originalMessageId"]
+        }
+    },
+    {
+        name: "gmail_trash",
+        description: "Move an email to the trash.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The Gmail address the email belongs to." },
+                messageId: { type: "string", description: "The Gmail message ID to trash (from gmail_search or gmail_read)." }
+            },
+            required: ["email", "messageId"]
+        }
+    },
+    {
+        name: "gmail_delete",
+        description: "Permanently delete an email. This cannot be undone. Use gmail_trash to move to trash instead.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The Gmail address the email belongs to." },
+                messageId: { type: "string", description: "The Gmail message ID to permanently delete." }
+            },
+            required: ["email", "messageId"]
+        }
+    },
+    {
+        name: "gmail_mark_read",
+        description: "Mark an email as read.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The Gmail address the email belongs to." },
+                messageId: { type: "string", description: "The Gmail message ID to mark as read." }
+            },
+            required: ["email", "messageId"]
+        }
+    },
+    {
+        name: "gmail_mark_unread",
+        description: "Mark an email as unread.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The Gmail address the email belongs to." },
+                messageId: { type: "string", description: "The Gmail message ID to mark as unread." }
+            },
+            required: ["email", "messageId"]
+        }
+    },
+    {
+        name: "gmail_star",
+        description: "Star an email.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The Gmail address the email belongs to." },
+                messageId: { type: "string", description: "The Gmail message ID to star." }
+            },
+            required: ["email", "messageId"]
+        }
+    },
+    {
+        name: "gmail_unstar",
+        description: "Remove the star from an email.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The Gmail address the email belongs to." },
+                messageId: { type: "string", description: "The Gmail message ID to unstar." }
+            },
+            required: ["email", "messageId"]
+        }
+    },
+    {
+        name: "gmail_list_labels",
+        description: "List all labels (folders) in a Gmail account.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The Gmail address to list labels for." }
+            },
+            required: ["email"]
+        }
+    },
+    {
+        name: "gmail_apply_label",
+        description: "Apply a label to an email. Use gmail_list_labels to get label IDs.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The Gmail address the email belongs to." },
+                messageId: { type: "string", description: "The Gmail message ID." },
+                labelId: { type: "string", description: "The label ID to apply (from gmail_list_labels)." }
+            },
+            required: ["email", "messageId", "labelId"]
+        }
+    },
+    {
+        name: "gmail_remove_label",
+        description: "Remove a label from an email. Use gmail_list_labels to get label IDs.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The Gmail address the email belongs to." },
+                messageId: { type: "string", description: "The Gmail message ID." },
+                labelId: { type: "string", description: "The label ID to remove (from gmail_list_labels)." }
+            },
+            required: ["email", "messageId", "labelId"]
+        }
+    },
+    {
+        name: "gmail_list_drafts",
+        description: "List draft emails in a Gmail account.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The Gmail address to list drafts for." },
+                maxResults: { type: "number", description: "Maximum number of drafts to return (default: 10)." }
+            },
+            required: ["email"]
+        }
+    },
+    {
+        name: "gmail_send_draft",
+        description: "Send an existing draft email. Use gmail_list_drafts to get draft IDs.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The Gmail address the draft belongs to." },
+                draftId: { type: "string", description: "The draft ID to send (from gmail_list_drafts or gmail_draft)." }
+            },
+            required: ["email", "draftId"]
+        }
     }
 ];
 
@@ -603,6 +767,7 @@ async function createRawEmail(opts: {
     to: string;
     subject: string;
     body: string;
+    from?: string;
     cc?: string;
     bcc?: string;
     inReplyTo?: string;
@@ -633,6 +798,7 @@ async function createRawEmail(opts: {
         'MIME-Version: 1.0',
         `Subject: =?utf-8?B?${Buffer.from(opts.subject).toString('base64')}?=`,
     ];
+    if (opts.from) headers.push(`From: ${opts.from}`);
     if (opts.cc) headers.push(`Cc: ${opts.cc}`);
     if (opts.bcc) headers.push(`Bcc: ${opts.bcc}`);
     if (opts.inReplyTo) headers.push(`In-Reply-To: ${opts.inReplyTo}`);
@@ -766,6 +932,134 @@ async function replyToEmail(
     }
 }
 
+
+async function forwardEmail(
+    email: string,
+    to: string,
+    subject: string,
+    body: string,
+    originalMessageId: string,
+    cc?: string,
+    bcc?: string,
+    contentType?: 'text' | 'markdown' | 'html',
+    attachments?: EmailAttachment[]
+) {
+    const { client, isReadonly, isDraftOnly } = await getAuthClient(email);
+    if (isReadonly) throw new Error(`Cannot forward emails from ${email}: Account is configured in Read-Only mode.`);
+    if (isDraftOnly) throw new Error(`Cannot send forwards from ${email}: Account is configured in Draft-Only mode.`);
+
+    const gmail = google.gmail({ version: 'v1', auth: client });
+
+    // Fetch the original message to inline its body
+    const original = await gmail.users.messages.get({ userId: 'me', id: originalMessageId, format: 'full' });
+    const origHeaders = original.data.payload?.headers || [];
+    const origFrom = origHeaders.find(h => h.name === 'From')?.value || '';
+    const origDate = origHeaders.find(h => h.name === 'Date')?.value || '';
+    const origSubject = origHeaders.find(h => h.name === 'Subject')?.value || '';
+    const origBody = extractText(original.data.payload) || '';
+
+    const fwdSuffix = `\n\n---------- Forwarded message ----------\nFrom: ${origFrom}\nDate: ${origDate}\nSubject: ${origSubject}\n\n${origBody}`;
+    const fullBody = body + fwdSuffix;
+
+    const raw = await createRawEmail({ to, subject, body: fullBody, cc, bcc, contentType, attachments });
+    const response = await gmail.users.messages.send({ userId: 'me', requestBody: { raw } });
+    return `Email forwarded successfully. Message ID: ${response.data.id}, Thread ID: ${response.data.threadId}`;
+}
+
+async function trashEmail(email: string, messageId: string) {
+    const { client, isReadonly } = await getAuthClient(email);
+    if (isReadonly) throw new Error(`Cannot trash emails from ${email}: Account is configured in Read-Only mode.`);
+    const gmail = google.gmail({ version: 'v1', auth: client });
+    await gmail.users.messages.trash({ userId: 'me', id: messageId });
+    return `Message ${messageId} moved to trash.`;
+}
+
+async function deleteEmail(email: string, messageId: string) {
+    const { client, isReadonly } = await getAuthClient(email);
+    if (isReadonly) throw new Error(`Cannot delete emails from ${email}: Account is configured in Read-Only mode.`);
+    const gmail = google.gmail({ version: 'v1', auth: client });
+    await gmail.users.messages.delete({ userId: 'me', id: messageId });
+    return `Message ${messageId} permanently deleted.`;
+}
+
+async function modifyMessageLabels(email: string, messageId: string, addLabelIds: string[], removeLabelIds: string[]) {
+    const { client, isReadonly } = await getAuthClient(email);
+    if (isReadonly) throw new Error(`Cannot modify labels from ${email}: Account is configured in Read-Only mode.`);
+    const gmail = google.gmail({ version: 'v1', auth: client });
+    await gmail.users.messages.modify({ userId: 'me', id: messageId, requestBody: { addLabelIds, removeLabelIds } });
+    return messageId;
+}
+
+async function markRead(email: string, messageId: string) {
+    await modifyMessageLabels(email, messageId, [], ['UNREAD']);
+    return `Message ${messageId} marked as read.`;
+}
+
+async function markUnread(email: string, messageId: string) {
+    await modifyMessageLabels(email, messageId, ['UNREAD'], []);
+    return `Message ${messageId} marked as unread.`;
+}
+
+async function starEmail(email: string, messageId: string) {
+    await modifyMessageLabels(email, messageId, ['STARRED'], []);
+    return `Message ${messageId} starred.`;
+}
+
+async function unstarEmail(email: string, messageId: string) {
+    await modifyMessageLabels(email, messageId, [], ['STARRED']);
+    return `Message ${messageId} unstarred.`;
+}
+
+async function applyLabel(email: string, messageId: string, labelId: string) {
+    await modifyMessageLabels(email, messageId, [labelId], []);
+    return `Label ${labelId} applied to message ${messageId}.`;
+}
+
+async function removeLabel(email: string, messageId: string, labelId: string) {
+    await modifyMessageLabels(email, messageId, [], [labelId]);
+    return `Label ${labelId} removed from message ${messageId}.`;
+}
+
+async function listLabels(email: string) {
+    const { client } = await getAuthClient(email);
+    const gmail = google.gmail({ version: 'v1', auth: client });
+    const response = await gmail.users.labels.list({ userId: 'me' });
+    const labels = (response.data.labels || []).map(l => ({ id: l.id, name: l.name, type: l.type }));
+    return JSON.stringify(labels, null, 2);
+}
+
+async function listDrafts(email: string, maxResults: number = 10) {
+    const { client } = await getAuthClient(email);
+    const gmail = google.gmail({ version: 'v1', auth: client });
+    const response = await gmail.users.drafts.list({ userId: 'me', maxResults });
+    const drafts = response.data.drafts;
+    if (!drafts || drafts.length === 0) return 'No drafts found.';
+
+    const detailed = await Promise.all(drafts.map(async d => {
+        if (!d.id) return null;
+        try {
+            const draft = await gmail.users.drafts.get({ userId: 'me', id: d.id, format: 'metadata' });
+            const headers = draft.data.message?.payload?.headers || [];
+            return {
+                draftId: d.id,
+                messageId: draft.data.message?.id,
+                subject: headers.find(h => h.name === 'Subject')?.value || '(no subject)',
+                to: headers.find(h => h.name === 'To')?.value || '',
+                date: headers.find(h => h.name === 'Date')?.value || ''
+            };
+        } catch { return null; }
+    }));
+    return JSON.stringify(detailed.filter(Boolean), null, 2);
+}
+
+async function sendDraft(email: string, draftId: string) {
+    const { client, isReadonly, isDraftOnly } = await getAuthClient(email);
+    if (isReadonly) throw new Error(`Cannot send from ${email}: Account is configured in Read-Only mode.`);
+    if (isDraftOnly) throw new Error(`Cannot send from ${email}: Account is configured in Draft-Only mode.`);
+    const gmail = google.gmail({ version: 'v1', auth: client });
+    const response = await gmail.users.drafts.send({ userId: 'me', requestBody: { id: draftId } });
+    return `Draft sent successfully. Message ID: ${response.data.id}, Thread ID: ${response.data.threadId}`;
+}
 
 // --- Google Chat Implementations ---
 
@@ -922,6 +1216,78 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                     typeof args.bcc === 'string' ? args.bcc : undefined,
                     Array.isArray(args.attachments) ? args.attachments : undefined
                 );
+                break;
+            case "gmail_forward":
+                if (!args || typeof args.email !== 'string' || typeof args.to !== 'string' || typeof args.subject !== 'string' || typeof args.body !== 'string' || typeof args.originalMessageId !== 'string') {
+                    throw new Error("Missing or invalid arguments for gmail_forward.");
+                }
+                result = await forwardEmail(args.email, args.to, args.subject, args.body, args.originalMessageId, typeof args.cc === 'string' ? args.cc : undefined, typeof args.bcc === 'string' ? args.bcc : undefined, args.contentType as 'text' | 'markdown' | 'html' | undefined, Array.isArray(args.attachments) ? args.attachments : undefined);
+                break;
+            case "gmail_trash":
+                if (!args || typeof args.email !== 'string' || typeof args.messageId !== 'string') {
+                    throw new Error("Missing or invalid arguments for gmail_trash.");
+                }
+                result = await trashEmail(args.email, args.messageId);
+                break;
+            case "gmail_delete":
+                if (!args || typeof args.email !== 'string' || typeof args.messageId !== 'string') {
+                    throw new Error("Missing or invalid arguments for gmail_delete.");
+                }
+                result = await deleteEmail(args.email, args.messageId);
+                break;
+            case "gmail_mark_read":
+                if (!args || typeof args.email !== 'string' || typeof args.messageId !== 'string') {
+                    throw new Error("Missing or invalid arguments for gmail_mark_read.");
+                }
+                result = await markRead(args.email, args.messageId);
+                break;
+            case "gmail_mark_unread":
+                if (!args || typeof args.email !== 'string' || typeof args.messageId !== 'string') {
+                    throw new Error("Missing or invalid arguments for gmail_mark_unread.");
+                }
+                result = await markUnread(args.email, args.messageId);
+                break;
+            case "gmail_star":
+                if (!args || typeof args.email !== 'string' || typeof args.messageId !== 'string') {
+                    throw new Error("Missing or invalid arguments for gmail_star.");
+                }
+                result = await starEmail(args.email, args.messageId);
+                break;
+            case "gmail_unstar":
+                if (!args || typeof args.email !== 'string' || typeof args.messageId !== 'string') {
+                    throw new Error("Missing or invalid arguments for gmail_unstar.");
+                }
+                result = await unstarEmail(args.email, args.messageId);
+                break;
+            case "gmail_list_labels":
+                if (!args || typeof args.email !== 'string') {
+                    throw new Error("Missing or invalid arguments for gmail_list_labels.");
+                }
+                result = await listLabels(args.email);
+                break;
+            case "gmail_apply_label":
+                if (!args || typeof args.email !== 'string' || typeof args.messageId !== 'string' || typeof args.labelId !== 'string') {
+                    throw new Error("Missing or invalid arguments for gmail_apply_label.");
+                }
+                result = await applyLabel(args.email, args.messageId, args.labelId);
+                break;
+            case "gmail_remove_label":
+                if (!args || typeof args.email !== 'string' || typeof args.messageId !== 'string' || typeof args.labelId !== 'string') {
+                    throw new Error("Missing or invalid arguments for gmail_remove_label.");
+                }
+                result = await removeLabel(args.email, args.messageId, args.labelId);
+                break;
+            case "gmail_list_drafts":
+                if (!args || typeof args.email !== 'string') {
+                    throw new Error("Missing or invalid arguments for gmail_list_drafts.");
+                }
+                result = await listDrafts(args.email, typeof args.maxResults === 'number' ? args.maxResults : 10);
+                break;
+            case "gmail_send_draft":
+                if (!args || typeof args.email !== 'string' || typeof args.draftId !== 'string') {
+                    throw new Error("Missing or invalid arguments for gmail_send_draft.");
+                }
+                result = await sendDraft(args.email, args.draftId);
                 break;
             default:
                 throw new Error(`Unknown tool: ${name}`);
