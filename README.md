@@ -8,7 +8,7 @@ Since this runs locally, you need your own Google Cloud OAuth credentials:
 
 1. Go to the [Google Cloud Console](https://console.cloud.google.com/).
 2. Create a new project (e.g., "Multi-Gmail MCP").
-3. Go to **APIs & Services > Library** and enable the **Gmail API**, **Google Calendar API**, and **Google Drive API**.
+3. Go to **APIs & Services > Library** and enable the **Gmail API**, **Google Calendar API**, **Google Drive API**, and **Google Meet API** (needed for adding Meet links / Gemini notes to events).
 4. Go to **APIs & Services > OAuth consent screen**:
    - Choose **External** user type.
    - Fill in the required fields (App name, User support email, Developer contact email).
@@ -199,11 +199,20 @@ If you run into module resolution errors, set the `NODE_PATH` environment variab
 | `calendar_list_calendars` | List all calendars in the account |
 | `calendar_list_events` | List upcoming events, with time range and search filters |
 | `calendar_get_event` | Get full details of a specific event |
-| `calendar_create_event` | Create an event (supports attendees, location, all-day) |
+| `calendar_create_event` | Create an event (supports attendees, location, all-day, Google Meet, Gemini notes) |
 | `calendar_update_event` | Update fields on an existing event |
 | `calendar_delete_event` | Delete an event |
 | `calendar_quick_add` | Create an event from natural language text |
 | `calendar_respond_to_event` | RSVP to an event invitation (accept/decline/tentative) |
+
+`calendar_create_event` accepts two optional flags:
+
+| Flag | Behavior |
+|---|---|
+| `addGoogleMeet` | Attaches a Google Meet video conference and returns its join link. |
+| `enableGeminiNotes` | Enables Gemini "Take notes for me" auto-generated notes for the Meet space (requires `addGoogleMeet: true`). Needs a Google Workspace account with Gemini access — the tool call succeeds either way, but reports if notes couldn't be enabled (e.g. no Gemini license on the organizer's account). |
+
+Using these requires the Google Meet API to be enabled on your Cloud project (see step 3 above), and the account must be authenticated with `calendar=full` (the `meetings.space.created` and `meetings.space.settings` scopes are bundled into Calendar's full permission tier — re-run `npm run auth` for accounts authenticated before this was added).
 
 ### Google Drive
 

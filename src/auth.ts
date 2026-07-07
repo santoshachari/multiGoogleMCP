@@ -39,7 +39,12 @@ const GMAIL_SCOPES: Record<GmailPermission, string[]> = {
 };
 
 const CALENDAR_SCOPES: Record<ServicePermission, string[]> = {
-    full: ['https://www.googleapis.com/auth/calendar'],
+    full: [
+        'https://www.googleapis.com/auth/calendar',
+        // Needed to configure Google Meet spaces created via Calendar events (e.g. Gemini note-taking).
+        'https://www.googleapis.com/auth/meetings.space.created',
+        'https://www.googleapis.com/auth/meetings.space.settings'
+    ],
     readonly: ['https://www.googleapis.com/auth/calendar.readonly']
 };
 

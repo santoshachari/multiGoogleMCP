@@ -685,7 +685,9 @@ const TOOLS: Tool[] = [
                 location: { type: "string", description: "Location of the event." },
                 attendees: { type: "string", description: "Comma-separated list of attendee email addresses." },
                 isAllDay: { type: "boolean", description: "If true, startDateTime and endDateTime are treated as dates (YYYY-MM-DD) for an all-day event." },
-                timeZone: { type: "string", description: "Timezone for the event (e.g. 'America/Los_Angeles'). Defaults to account timezone." }
+                timeZone: { type: "string", description: "Timezone for the event (e.g. 'America/Los_Angeles'). Defaults to account timezone." },
+                addGoogleMeet: { type: "boolean", description: "If true, attaches a Google Meet video conference to the event and returns its join link." },
+                enableGeminiNotes: { type: "boolean", description: "If true (requires addGoogleMeet), enables Gemini 'Take notes for me' auto-generated notes for the Meet space. Requires a Google Workspace account with Gemini access; silently reported as unavailable otherwise." }
             },
             required: ["email", "calendarId", "title", "startDateTime", "endDateTime"]
         }
@@ -1522,9 +1524,37 @@ async function calendarGetEvent(email: string, calendarId: string, eventId: stri
         organizer: e.organizer,
         status: e.status,
         htmlLink: e.htmlLink,
+        meetLink: e.hangoutLink || e.conferenceData?.entryPoints?.find(ep => ep.entryPointType === 'video')?.uri,
         created: e.created,
         updated: e.updated
     }, null, 2);
+}
+
+// Meet conference data is generated asynchronously by Calendar; poll briefly until the
+// meeting code shows up so we can configure the Meet space (e.g. Gemini notes) right after.
+async function pollForMeetingCode(calendar: any, calendarId: string, eventId: string, attempts: number = 5): Promise<string | null> {
+    for (let i = 0; i < attempts; i++) {
+        const ev = await calendar.events.get({ calendarId, eventId });
+        const conferenceId = ev.data.conferenceData?.conferenceId;
+        if (conferenceId) return conferenceId;
+        await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+    return null;
+}
+
+async function enableGeminiNotesForSpace(client: any, meetingCode: string) {
+    const meet = google.meet({ version: 'v2', auth: client });
+    await meet.spaces.patch({
+        name: `spaces/${meetingCode}`,
+        updateMask: 'config.artifactConfig.smartNotesConfig.autoSmartNotesGeneration',
+        requestBody: {
+            config: {
+                artifactConfig: {
+                    smartNotesConfig: { autoSmartNotesGeneration: 'ON' }
+                }
+            }
+        }
+    });
 }
 
 async function calendarCreateEvent(
@@ -1537,7 +1567,9 @@ async function calendarCreateEvent(
     location?: string,
     attendees?: string,
     isAllDay?: boolean,
-    timeZone?: string
+    timeZone?: string,
+    addGoogleMeet?: boolean,
+    enableGeminiNotes?: boolean
 ) {
     const { client, permissions } = await getAuthClient(email);
     assertCalendarCanWrite(permissions, email);
@@ -1548,18 +1580,50 @@ async function calendarCreateEvent(
     const startObj = isAllDay ? { date: startDateTime } : { dateTime: startDateTime, timeZone };
     const endObj = isAllDay ? { date: endDateTime } : { dateTime: endDateTime, timeZone };
 
+    const requestBody: any = {
+        summary: title,
+        description,
+        location,
+        start: startObj,
+        end: endObj,
+        attendees: attendeeList.length > 0 ? attendeeList : undefined
+    };
+
+    if (addGoogleMeet) {
+        requestBody.conferenceData = {
+            createRequest: {
+                requestId: `meet-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+                conferenceSolutionKey: { type: 'hangoutsMeet' }
+            }
+        };
+    }
+
     const response = await calendar.events.insert({
         calendarId,
-        requestBody: {
-            summary: title,
-            description,
-            location,
-            start: startObj,
-            end: endObj,
-            attendees: attendeeList.length > 0 ? attendeeList : undefined
-        }
+        conferenceDataVersion: addGoogleMeet ? 1 : undefined,
+        requestBody
     });
-    return `Event created. ID: ${response.data.id}, Link: ${response.data.htmlLink}`;
+
+    const meetLink = response.data.hangoutLink
+        || response.data.conferenceData?.entryPoints?.find(e => e.entryPointType === 'video')?.uri;
+
+    let notesNote = '';
+    if (addGoogleMeet && enableGeminiNotes) {
+        try {
+            const meetingCode = response.data.conferenceData?.conferenceId
+                || await pollForMeetingCode(calendar, calendarId, response.data.id!);
+            if (meetingCode) {
+                await enableGeminiNotesForSpace(client, meetingCode);
+                notesNote = ' Gemini note-taking enabled.';
+            } else {
+                notesNote = ' (Meet link created, but Gemini notes could not be enabled: conference data was not ready in time.)';
+            }
+        } catch (e: any) {
+            notesNote = ` (Meet link created, but Gemini notes could not be enabled: ${e.message})`;
+        }
+    }
+
+    return `Event created. ID: ${response.data.id}${meetLink ? `, Meet Link: ${meetLink}` : ''}, Link: ${response.data.htmlLink}.${notesNote}`;
 }
 
 async function calendarUpdateEvent(
@@ -1995,7 +2059,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 break;
             case "calendar_create_event":
                 if (!args || typeof args.email !== 'string' || typeof args.calendarId !== 'string' || typeof args.title !== 'string' || typeof args.startDateTime !== 'string' || typeof args.endDateTime !== 'string') throw new Error("Missing or invalid arguments for calendar_create_event.");
-                result = await calendarCreateEvent(args.email, args.calendarId, args.title, args.startDateTime, args.endDateTime, typeof args.description === 'string' ? args.description : undefined, typeof args.location === 'string' ? args.location : undefined, typeof args.attendees === 'string' ? args.attendees : undefined, typeof args.isAllDay === 'boolean' ? args.isAllDay : false, typeof args.timeZone === 'string' ? args.timeZone : undefined);
+                result = await calendarCreateEvent(args.email, args.calendarId, args.title, args.startDateTime, args.endDateTime, typeof args.description === 'string' ? args.description : undefined, typeof args.location === 'string' ? args.location : undefined, typeof args.attendees === 'string' ? args.attendees : undefined, typeof args.isAllDay === 'boolean' ? args.isAllDay : false, typeof args.timeZone === 'string' ? args.timeZone : undefined, typeof args.addGoogleMeet === 'boolean' ? args.addGoogleMeet : false, typeof args.enableGeminiNotes === 'boolean' ? args.enableGeminiNotes : false);
                 break;
             case "calendar_update_event":
                 if (!args || typeof args.email !== 'string' || typeof args.calendarId !== 'string' || typeof args.eventId !== 'string') throw new Error("Missing or invalid arguments for calendar_update_event.");
