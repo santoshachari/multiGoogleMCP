@@ -11,68 +11,110 @@ const PROJECT_ROOT = path.join(__dirname, '..');
 const CREDENTIALS_PATH = path.join(PROJECT_ROOT, 'credentials.json');
 const TOKENS_PATH = path.join(PROJECT_ROOT, 'tokens.json');
 
-const FULL_SCOPES = [
-    'https://www.googleapis.com/auth/gmail.modify',
-    'https://www.googleapis.com/auth/gmail.compose',
-    'https://www.googleapis.com/auth/gmail.send',
-    'https://www.googleapis.com/auth/chat.messages',
-    'https://www.googleapis.com/auth/chat.messages.reactions',
-    'https://www.googleapis.com/auth/chat.spaces.readonly',
-    'https://www.googleapis.com/auth/calendar',
-    'https://www.googleapis.com/auth/drive',
-    'https://www.googleapis.com/auth/userinfo.email'
-];
+export type GmailPermission = 'full' | 'draft' | 'readonly';
+export type ServicePermission = 'full' | 'readonly';
 
-const READONLY_SCOPES = [
-    'https://www.googleapis.com/auth/gmail.readonly',
-    'https://www.googleapis.com/auth/chat.messages.readonly',
-    'https://www.googleapis.com/auth/chat.spaces.readonly',
-    'https://www.googleapis.com/auth/calendar.readonly',
-    'https://www.googleapis.com/auth/drive.readonly',
-    'https://www.googleapis.com/auth/userinfo.email'
-];
+export interface AccountPermissions {
+    gmail: GmailPermission;
+    calendar: ServicePermission;
+    drive: ServicePermission;
+    chat: ServicePermission;
+}
 
-const DRAFTONLY_SCOPES = [
-    'https://www.googleapis.com/auth/gmail.readonly',
-    'https://www.googleapis.com/auth/gmail.compose',
-    'https://www.googleapis.com/auth/chat.messages.readonly',
-    'https://www.googleapis.com/auth/chat.spaces.readonly',
-    'https://www.googleapis.com/auth/calendar.readonly',
-    'https://www.googleapis.com/auth/drive.readonly',
-    'https://www.googleapis.com/auth/userinfo.email'
-];
+const FULL_PERMISSIONS: AccountPermissions = { gmail: 'full', calendar: 'full', drive: 'full', chat: 'full' };
+const READONLY_PERMISSIONS: AccountPermissions = { gmail: 'readonly', calendar: 'readonly', drive: 'readonly', chat: 'readonly' };
+const DRAFTONLY_PERMISSIONS: AccountPermissions = { gmail: 'draft', calendar: 'readonly', drive: 'readonly', chat: 'readonly' };
+
+const GMAIL_SCOPES: Record<GmailPermission, string[]> = {
+    full: [
+        'https://www.googleapis.com/auth/gmail.modify',
+        'https://www.googleapis.com/auth/gmail.compose',
+        'https://www.googleapis.com/auth/gmail.send'
+    ],
+    draft: [
+        'https://www.googleapis.com/auth/gmail.readonly',
+        'https://www.googleapis.com/auth/gmail.compose'
+    ],
+    readonly: ['https://www.googleapis.com/auth/gmail.readonly']
+};
+
+const CALENDAR_SCOPES: Record<ServicePermission, string[]> = {
+    full: ['https://www.googleapis.com/auth/calendar'],
+    readonly: ['https://www.googleapis.com/auth/calendar.readonly']
+};
+
+const DRIVE_SCOPES: Record<ServicePermission, string[]> = {
+    full: ['https://www.googleapis.com/auth/drive'],
+    readonly: ['https://www.googleapis.com/auth/drive.readonly']
+};
+
+const CHAT_SCOPES: Record<ServicePermission, string[]> = {
+    full: [
+        'https://www.googleapis.com/auth/chat.messages',
+        'https://www.googleapis.com/auth/chat.messages.reactions',
+        'https://www.googleapis.com/auth/chat.spaces.readonly'
+    ],
+    readonly: [
+        'https://www.googleapis.com/auth/chat.messages.readonly',
+        'https://www.googleapis.com/auth/chat.spaces.readonly'
+    ]
+};
+
+function scopesFor(permissions: AccountPermissions): string[] {
+    return [
+        ...GMAIL_SCOPES[permissions.gmail],
+        ...CALENDAR_SCOPES[permissions.calendar],
+        ...DRIVE_SCOPES[permissions.drive],
+        ...CHAT_SCOPES[permissions.chat],
+        'https://www.googleapis.com/auth/userinfo.email'
+    ];
+}
 
 interface AccountToken {
     email: string;
     refresh_token: string;
-    readonly: boolean;
-    draft_only: boolean;
+    permissions: AccountPermissions;
+}
+
+// Legacy tokens.json entries only had `readonly`/`draft_only` booleans. Map them onto the
+// closest equivalent granular permissions until the account is re-authenticated.
+function migratePermissions(raw: any): AccountPermissions {
+    if (raw.permissions) return raw.permissions;
+    if (raw.readonly) return READONLY_PERMISSIONS;
+    if (raw.draft_only) return DRAFTONLY_PERMISSIONS;
+    return FULL_PERMISSIONS;
 }
 
 export async function getStoredTokens(): Promise<AccountToken[]> {
     try {
         const data = await fs.readFile(TOKENS_PATH, 'utf-8');
-        return JSON.parse(data);
+        const raw = JSON.parse(data);
+        return raw.map((t: any): AccountToken => ({
+            email: t.email,
+            refresh_token: t.refresh_token,
+            permissions: migratePermissions(t)
+        }));
     } catch (err) {
         return [];
     }
 }
 
-async function saveToken(email: string, refresh_token: string, readonly: boolean, draft_only: boolean) {
+async function saveToken(email: string, refresh_token: string, permissions: AccountPermissions) {
     const tokens = await getStoredTokens();
     const existingIndex = tokens.findIndex(t => t.email === email);
+    const entry: AccountToken = { email, refresh_token, permissions };
 
     if (existingIndex >= 0) {
-        tokens[existingIndex] = { email, refresh_token, readonly, draft_only };
+        tokens[existingIndex] = entry;
     } else {
-        tokens.push({ email, refresh_token, readonly, draft_only });
+        tokens.push(entry);
     }
 
     await fs.writeFile(TOKENS_PATH, JSON.stringify(tokens, null, 2));
-    console.log(`Successfully saved token for ${email}`);
+    console.log(`Successfully saved token for ${email} (gmail=${permissions.gmail}, calendar=${permissions.calendar}, drive=${permissions.drive}, chat=${permissions.chat})`);
 }
 
-async function authenticate(readonly: boolean = false, draftOnly: boolean = false) {
+async function authenticate(permissions: AccountPermissions) {
     try {
         const credentialsRaw = await fs.readFile(CREDENTIALS_PATH, 'utf-8');
         const credentials = JSON.parse(credentialsRaw);
@@ -91,12 +133,7 @@ async function authenticate(readonly: boolean = false, draftOnly: boolean = fals
             redirectUri
         );
 
-        let scopes = FULL_SCOPES;
-        if (readonly) {
-            scopes = READONLY_SCOPES;
-        } else if (draftOnly) {
-            scopes = DRAFTONLY_SCOPES;
-        }
+        const scopes = scopesFor(permissions);
 
         const authUrl = oauth2Client.generateAuthUrl({
             access_type: 'offline',
@@ -129,7 +166,7 @@ async function authenticate(readonly: boolean = false, draftOnly: boolean = fals
                 if (!tokens.refresh_token) {
                     console.warn(`WARNING: No refresh token received for ${email}. You might need to revoke access in Google Account settings and try again.`);
                 } else {
-                    await saveToken(email, tokens.refresh_token, readonly, draftOnly);
+                    await saveToken(email, tokens.refresh_token, permissions);
                 }
 
                 res.send('Authorization successful! You can close this window and return to the terminal.');
@@ -166,10 +203,52 @@ async function authenticate(readonly: boolean = false, draftOnly: boolean = fals
     }
 }
 
+// Parses CLI flags into a permissions object.
+//   --readonly / --draftonly   Legacy shorthand: sets every service at once.
+//   --gmail=<full|draft|readonly>
+//   --calendar=<full|readonly>
+//   --drive=<full|readonly>
+//   --chat=<full|readonly>
+// Granular flags override the shorthand for that specific service, so they can be combined,
+// e.g. `--draftonly --calendar=full` grants Gmail drafting only, but full Calendar access.
+export function parsePermissionsFromArgs(argv: string[]): AccountPermissions {
+    let permissions: AccountPermissions = { ...FULL_PERMISSIONS };
+
+    if (argv.includes('--readonly')) {
+        permissions = { ...READONLY_PERMISSIONS };
+    } else if (argv.includes('--draftonly')) {
+        permissions = { ...DRAFTONLY_PERMISSIONS };
+    }
+
+    for (const arg of argv) {
+        const match = arg.match(/^--(gmail|calendar|drive|chat)=(\w+)$/);
+        if (!match) continue;
+        const [, service, level] = match;
+
+        if (service === 'gmail') {
+            if (level !== 'full' && level !== 'draft' && level !== 'readonly') {
+                throw new Error(`Invalid --gmail value '${level}'. Must be one of: full, draft, readonly.`);
+            }
+            permissions.gmail = level;
+        } else {
+            if (level !== 'full' && level !== 'readonly') {
+                throw new Error(`Invalid --${service} value '${level}'. Must be one of: full, readonly.`);
+            }
+            permissions[service as 'calendar' | 'drive' | 'chat'] = level;
+        }
+    }
+
+    return permissions;
+}
+
 // Check if run directly
 if (require.main === module) {
-    const isReadonly = process.argv.includes('--readonly');
-    const isDraftOnly = process.argv.includes('--draftonly');
-    console.log(`Starting authentication flow. Readonly mode: ${isReadonly}, Draft-Only mode: ${isDraftOnly}`);
-    authenticate(isReadonly, isDraftOnly);
+    try {
+        const permissions = parsePermissionsFromArgs(process.argv);
+        console.log(`Starting authentication flow. Permissions: gmail=${permissions.gmail}, calendar=${permissions.calendar}, drive=${permissions.drive}, chat=${permissions.chat}`);
+        authenticate(permissions);
+    } catch (error: any) {
+        console.error(`Error: ${error.message}`);
+        process.exit(1);
+    }
 }

@@ -9,7 +9,7 @@ import { google } from "googleapis";
 import { marked } from "marked";
 import fs from "fs/promises";
 import path from "path";
-import { getStoredTokens } from "./auth.js";
+import { getStoredTokens, AccountPermissions } from "./auth.js";
 
 const PROJECT_ROOT = path.join(__dirname, '..');
 
@@ -43,9 +43,40 @@ async function getAuthClient(email: string) {
 
     return {
         client: oauth2Client,
-        isReadonly: account.readonly,
-        isDraftOnly: account.draft_only || false
+        permissions: account.permissions
     };
+}
+
+// --- Helper: Permission Guards ---
+
+function assertGmailCanSend(permissions: AccountPermissions, email: string) {
+    if (permissions.gmail !== 'full') {
+        throw new Error(`Cannot send emails from ${email}: Gmail permission is '${permissions.gmail}' (requires 'full'). Re-run auth with --gmail=full to enable sending.`);
+    }
+}
+
+function assertGmailCanModify(permissions: AccountPermissions, email: string) {
+    if (permissions.gmail === 'readonly') {
+        throw new Error(`Cannot modify emails from ${email}: Gmail permission is 'readonly'. Re-run auth with --gmail=full or --gmail=draft to enable this.`);
+    }
+}
+
+function assertCalendarCanWrite(permissions: AccountPermissions, email: string) {
+    if (permissions.calendar !== 'full') {
+        throw new Error(`Cannot modify calendar from ${email}: Calendar permission is 'readonly'. Re-run auth with --calendar=full to enable this.`);
+    }
+}
+
+function assertDriveCanWrite(permissions: AccountPermissions, email: string) {
+    if (permissions.drive !== 'full') {
+        throw new Error(`Cannot modify Drive from ${email}: Drive permission is 'readonly'. Re-run auth with --drive=full to enable this.`);
+    }
+}
+
+function assertChatCanSend(permissions: AccountPermissions, email: string) {
+    if (permissions.chat !== 'full') {
+        throw new Error(`Cannot send Chat messages from ${email}: Chat permission is 'readonly'. Re-run auth with --chat=full to enable this.`);
+    }
 }
 
 
@@ -866,7 +897,7 @@ async function listAccounts() {
         return "No accounts authenticated yet. Please run the authentication script.";
     }
 
-    const accountsInfo = tokens.map(t => `- ${t.email} (Readonly: ${t.readonly}, Draft-Only: ${t.draft_only || false})`).join("\n");
+    const accountsInfo = tokens.map(t => `- ${t.email} (gmail: ${t.permissions.gmail}, calendar: ${t.permissions.calendar}, drive: ${t.permissions.drive}, chat: ${t.permissions.chat})`).join("\n");
     return `Authenticated Accounts:\n${accountsInfo}`;
 }
 
@@ -1134,10 +1165,8 @@ async function createRawEmail(opts: {
 }
 
 async function draftEmail(email: string, to: string, subject: string, body: string, contentType?: 'text' | 'markdown' | 'html', cc?: string, bcc?: string, attachments?: EmailAttachment[]) {
-    const { client, isReadonly } = await getAuthClient(email);
-    if (isReadonly) {
-        throw new Error(`Cannot draft emails from ${email}: Account is configured in Read-Only mode.`);
-    }
+    const { client, permissions } = await getAuthClient(email);
+    assertGmailCanModify(permissions, email);
 
     const gmail = google.gmail({ version: 'v1', auth: client });
 
@@ -1156,13 +1185,8 @@ async function draftEmail(email: string, to: string, subject: string, body: stri
 }
 
 async function sendEmail(email: string, to: string, subject: string, body: string, contentType?: 'text' | 'markdown' | 'html', cc?: string, bcc?: string, attachments?: EmailAttachment[]) {
-    const { client, isReadonly, isDraftOnly } = await getAuthClient(email);
-    if (isReadonly) {
-        throw new Error(`Cannot send emails from ${email}: Account is configured in Read-Only mode.`);
-    }
-    if (isDraftOnly) {
-        throw new Error(`Cannot send emails from ${email}: Account is configured in Draft-Only mode (can only draft).`);
-    }
+    const { client, permissions } = await getAuthClient(email);
+    assertGmailCanSend(permissions, email);
 
     const gmail = google.gmail({ version: 'v1', auth: client });
 
@@ -1192,12 +1216,11 @@ async function replyToEmail(
     bcc?: string,
     attachments?: EmailAttachment[]
 ) {
-    const { client, isReadonly, isDraftOnly } = await getAuthClient(email);
-    if (isReadonly) {
-        throw new Error(`Cannot reply from ${email}: Account is configured in Read-Only mode.`);
-    }
-    if (isDraftOnly && !isDraft) {
-        throw new Error(`Cannot send replies from ${email}: Account is configured in Draft-Only mode. Set isDraft to true to create a draft reply.`);
+    const { client, permissions } = await getAuthClient(email);
+    if (isDraft) {
+        assertGmailCanModify(permissions, email);
+    } else {
+        assertGmailCanSend(permissions, email);
     }
 
     const gmail = google.gmail({ version: 'v1', auth: client });
@@ -1242,9 +1265,8 @@ async function forwardEmail(
     contentType?: 'text' | 'markdown' | 'html',
     attachments?: EmailAttachment[]
 ) {
-    const { client, isReadonly, isDraftOnly } = await getAuthClient(email);
-    if (isReadonly) throw new Error(`Cannot forward emails from ${email}: Account is configured in Read-Only mode.`);
-    if (isDraftOnly) throw new Error(`Cannot send forwards from ${email}: Account is configured in Draft-Only mode.`);
+    const { client, permissions } = await getAuthClient(email);
+    assertGmailCanSend(permissions, email);
 
     const gmail = google.gmail({ version: 'v1', auth: client });
 
@@ -1265,24 +1287,24 @@ async function forwardEmail(
 }
 
 async function trashEmail(email: string, messageId: string) {
-    const { client, isReadonly } = await getAuthClient(email);
-    if (isReadonly) throw new Error(`Cannot trash emails from ${email}: Account is configured in Read-Only mode.`);
+    const { client, permissions } = await getAuthClient(email);
+    assertGmailCanModify(permissions, email);
     const gmail = google.gmail({ version: 'v1', auth: client });
     await gmail.users.messages.trash({ userId: 'me', id: messageId });
     return `Message ${messageId} moved to trash.`;
 }
 
 async function deleteEmail(email: string, messageId: string) {
-    const { client, isReadonly } = await getAuthClient(email);
-    if (isReadonly) throw new Error(`Cannot delete emails from ${email}: Account is configured in Read-Only mode.`);
+    const { client, permissions } = await getAuthClient(email);
+    assertGmailCanModify(permissions, email);
     const gmail = google.gmail({ version: 'v1', auth: client });
     await gmail.users.messages.delete({ userId: 'me', id: messageId });
     return `Message ${messageId} permanently deleted.`;
 }
 
 async function modifyMessageLabels(email: string, messageId: string, addLabelIds: string[], removeLabelIds: string[]) {
-    const { client, isReadonly } = await getAuthClient(email);
-    if (isReadonly) throw new Error(`Cannot modify labels from ${email}: Account is configured in Read-Only mode.`);
+    const { client, permissions } = await getAuthClient(email);
+    assertGmailCanModify(permissions, email);
     const gmail = google.gmail({ version: 'v1', auth: client });
     await gmail.users.messages.modify({ userId: 'me', id: messageId, requestBody: { addLabelIds, removeLabelIds } });
     return messageId;
@@ -1351,9 +1373,8 @@ async function listDrafts(email: string, maxResults: number = 10, pageToken?: st
 }
 
 async function sendDraft(email: string, draftId: string) {
-    const { client, isReadonly, isDraftOnly } = await getAuthClient(email);
-    if (isReadonly) throw new Error(`Cannot send from ${email}: Account is configured in Read-Only mode.`);
-    if (isDraftOnly) throw new Error(`Cannot send from ${email}: Account is configured in Draft-Only mode.`);
+    const { client, permissions } = await getAuthClient(email);
+    assertGmailCanSend(permissions, email);
     const gmail = google.gmail({ version: 'v1', auth: client });
     const response = await gmail.users.drafts.send({ userId: 'me', requestBody: { id: draftId } });
     return `Draft sent successfully. Message ID: ${response.data.id}, Thread ID: ${response.data.threadId}`;
@@ -1409,13 +1430,8 @@ async function chatListMessages(email: string, spaceName: string, maxResults: nu
 }
 
 async function chatSendMessage(email: string, spaceName: string, text: string, threadName?: string) {
-    const { client, isReadonly, isDraftOnly } = await getAuthClient(email);
-    if (isReadonly) {
-        throw new Error(`Cannot send Chat messages from ${email}: Account is configured in Read-Only mode.`);
-    }
-    if (isDraftOnly) {
-        throw new Error(`Cannot send Chat messages from ${email}: Account is configured in Draft-Only mode.`);
-    }
+    const { client, permissions } = await getAuthClient(email);
+    assertChatCanSend(permissions, email);
 
     const chat = google.chat({ version: 'v1', auth: client });
 
@@ -1432,13 +1448,8 @@ async function chatSendMessage(email: string, spaceName: string, text: string, t
 }
 
 async function chatAddReaction(email: string, messageName: string, emoji: string) {
-    const { client, isReadonly, isDraftOnly } = await getAuthClient(email);
-    if (isReadonly) {
-        throw new Error(`Cannot add reactions from ${email}: Account is configured in Read-Only mode.`);
-    }
-    if (isDraftOnly) {
-        throw new Error(`Cannot add reactions from ${email}: Account is configured in Draft-Only mode.`);
-    }
+    const { client, permissions } = await getAuthClient(email);
+    assertChatCanSend(permissions, email);
 
     const chat = google.chat({ version: 'v1', auth: client });
 
@@ -1528,9 +1539,8 @@ async function calendarCreateEvent(
     isAllDay?: boolean,
     timeZone?: string
 ) {
-    const { client, isReadonly, isDraftOnly } = await getAuthClient(email);
-    if (isReadonly) throw new Error(`Cannot create events from ${email}: Account is configured in Read-Only mode.`);
-    if (isDraftOnly) throw new Error(`Cannot create events from ${email}: Account is configured in Draft-Only mode (Calendar changes require full access).`);
+    const { client, permissions } = await getAuthClient(email);
+    assertCalendarCanWrite(permissions, email);
     const calendar = google.calendar({ version: 'v3', auth: client });
 
     const attendeeList = attendees ? attendees.split(',').map(a => ({ email: a.trim() })) : [];
@@ -1564,9 +1574,8 @@ async function calendarUpdateEvent(
     attendees?: string,
     timeZone?: string
 ) {
-    const { client, isReadonly, isDraftOnly } = await getAuthClient(email);
-    if (isReadonly) throw new Error(`Cannot update events from ${email}: Account is configured in Read-Only mode.`);
-    if (isDraftOnly) throw new Error(`Cannot update events from ${email}: Account is configured in Draft-Only mode (Calendar changes require full access).`);
+    const { client, permissions } = await getAuthClient(email);
+    assertCalendarCanWrite(permissions, email);
     const calendar = google.calendar({ version: 'v3', auth: client });
 
     // Fetch existing event to patch
@@ -1584,27 +1593,24 @@ async function calendarUpdateEvent(
 }
 
 async function calendarDeleteEvent(email: string, calendarId: string, eventId: string) {
-    const { client, isReadonly, isDraftOnly } = await getAuthClient(email);
-    if (isReadonly) throw new Error(`Cannot delete events from ${email}: Account is configured in Read-Only mode.`);
-    if (isDraftOnly) throw new Error(`Cannot delete events from ${email}: Account is configured in Draft-Only mode (Calendar changes require full access).`);
+    const { client, permissions } = await getAuthClient(email);
+    assertCalendarCanWrite(permissions, email);
     const calendar = google.calendar({ version: 'v3', auth: client });
     await calendar.events.delete({ calendarId, eventId });
     return `Event ${eventId} deleted.`;
 }
 
 async function calendarQuickAdd(email: string, calendarId: string, text: string) {
-    const { client, isReadonly, isDraftOnly } = await getAuthClient(email);
-    if (isReadonly) throw new Error(`Cannot create events from ${email}: Account is configured in Read-Only mode.`);
-    if (isDraftOnly) throw new Error(`Cannot create events from ${email}: Account is configured in Draft-Only mode (Calendar changes require full access).`);
+    const { client, permissions } = await getAuthClient(email);
+    assertCalendarCanWrite(permissions, email);
     const calendar = google.calendar({ version: 'v3', auth: client });
     const response = await calendar.events.quickAdd({ calendarId, text });
     return `Event created. ID: ${response.data.id}, Title: ${response.data.summary}, Start: ${response.data.start?.dateTime || response.data.start?.date}, Link: ${response.data.htmlLink}`;
 }
 
 async function calendarRespondToEvent(email: string, calendarId: string, eventId: string, responseStatus: 'accepted' | 'declined' | 'tentative') {
-    const { client, isReadonly, isDraftOnly } = await getAuthClient(email);
-    if (isReadonly) throw new Error(`Cannot respond to events from ${email}: Account is configured in Read-Only mode.`);
-    if (isDraftOnly) throw new Error(`Cannot respond to events from ${email}: Account is configured in Draft-Only mode (Calendar changes require full access).`);
+    const { client, permissions } = await getAuthClient(email);
+    assertCalendarCanWrite(permissions, email);
     const calendar = google.calendar({ version: 'v3', auth: client });
 
     const existing = await calendar.events.get({ calendarId, eventId });
@@ -1733,9 +1739,8 @@ async function driveDownloadFile(email: string, fileId: string, exportMimeType?:
 }
 
 async function driveUploadFile(email: string, filename: string, mimeType: string, data: string, folderId?: string) {
-    const { client, isReadonly, isDraftOnly } = await getAuthClient(email);
-    if (isReadonly) throw new Error(`Cannot upload files from ${email}: Account is configured in Read-Only mode.`);
-    if (isDraftOnly) throw new Error(`Cannot upload files from ${email}: Account is configured in Draft-Only mode (Drive changes require full access).`);
+    const { client, permissions } = await getAuthClient(email);
+    assertDriveCanWrite(permissions, email);
     const drive = google.drive({ version: 'v3', auth: client });
 
     const buffer = Buffer.from(data, 'base64');
@@ -1754,9 +1759,8 @@ async function driveUploadFile(email: string, filename: string, mimeType: string
 }
 
 async function driveCreateFolder(email: string, name: string, parentFolderId?: string) {
-    const { client, isReadonly, isDraftOnly } = await getAuthClient(email);
-    if (isReadonly) throw new Error(`Cannot create folders from ${email}: Account is configured in Read-Only mode.`);
-    if (isDraftOnly) throw new Error(`Cannot create folders from ${email}: Account is configured in Draft-Only mode (Drive changes require full access).`);
+    const { client, permissions } = await getAuthClient(email);
+    assertDriveCanWrite(permissions, email);
     const drive = google.drive({ version: 'v3', auth: client });
     const response = await drive.files.create({
         requestBody: {
@@ -1770,18 +1774,16 @@ async function driveCreateFolder(email: string, name: string, parentFolderId?: s
 }
 
 async function driveDeleteFile(email: string, fileId: string) {
-    const { client, isReadonly, isDraftOnly } = await getAuthClient(email);
-    if (isReadonly) throw new Error(`Cannot delete files from ${email}: Account is configured in Read-Only mode.`);
-    if (isDraftOnly) throw new Error(`Cannot delete files from ${email}: Account is configured in Draft-Only mode (Drive changes require full access).`);
+    const { client, permissions } = await getAuthClient(email);
+    assertDriveCanWrite(permissions, email);
     const drive = google.drive({ version: 'v3', auth: client });
     await drive.files.delete({ fileId });
     return `File ${fileId} deleted.`;
 }
 
 async function driveShareFile(email: string, fileId: string, shareWithEmail: string, role: string = 'reader', sendNotification: boolean = true) {
-    const { client, isReadonly, isDraftOnly } = await getAuthClient(email);
-    if (isReadonly) throw new Error(`Cannot share files from ${email}: Account is configured in Read-Only mode.`);
-    if (isDraftOnly) throw new Error(`Cannot share files from ${email}: Account is configured in Draft-Only mode (Drive changes require full access).`);
+    const { client, permissions } = await getAuthClient(email);
+    assertDriveCanWrite(permissions, email);
     const drive = google.drive({ version: 'v3', auth: client });
     await drive.permissions.create({
         fileId,
@@ -1792,9 +1794,8 @@ async function driveShareFile(email: string, fileId: string, shareWithEmail: str
 }
 
 async function driveMoveFile(email: string, fileId: string, newParentFolderId: string) {
-    const { client, isReadonly, isDraftOnly } = await getAuthClient(email);
-    if (isReadonly) throw new Error(`Cannot move files from ${email}: Account is configured in Read-Only mode.`);
-    if (isDraftOnly) throw new Error(`Cannot move files from ${email}: Account is configured in Draft-Only mode (Drive changes require full access).`);
+    const { client, permissions } = await getAuthClient(email);
+    assertDriveCanWrite(permissions, email);
     const drive = google.drive({ version: 'v3', auth: client });
 
     // Get current parents

@@ -1,6 +1,6 @@
 # Multi-Gmail MCP Server
 
-A Model Context Protocol (MCP) server that connects your AI assistant to multiple Gmail accounts simultaneously. Search emails, read content, draft, send, and reply — with per-account permission controls (full, read-only, or draft-only).
+A Model Context Protocol (MCP) server that connects your AI assistant to multiple Google accounts simultaneously — Gmail, Calendar, Drive, and Chat — with independent, per-service permission controls (full, read-only, and Gmail's draft-only) for each account.
 
 ## 1. Setup Google Cloud Project
 
@@ -31,24 +31,33 @@ npm run build
 
 ## 3. Authenticate Your Accounts
 
-Authorize each Gmail account you want the server to access:
+Authorize each Gmail account you want the server to access. Permissions are set **per service** — Gmail, Calendar, Drive, and Chat can each be configured independently for a single account.
 
 ```bash
-# Full access (read, compose, send)
+# Full access to everything (default)
 npm run auth
 
-# Read-only (no drafting or sending)
+# Shorthand: read-only across all services
 npm run auth -- --readonly
 
-# Draft-only (can read and draft, but not send; Calendar/Drive are read-only)
+# Shorthand: Gmail can draft but not send; Calendar/Drive/Chat are read-only
 npm run auth -- --draftonly
+
+# Granular: override individual services
+npm run auth -- --gmail=<full|draft|readonly> --calendar=<full|readonly> --drive=<full|readonly> --chat=<full|readonly>
 ```
 
-This opens a browser window for Google OAuth. Run the command once per account — credentials are saved locally in `tokens.json`.
+Granular flags can combine with the shorthand flags to override just one service, e.g. an account that can never send email but *can* fully manage your calendar (accept/decline invites, create events):
+
+```bash
+npm run auth -- --draftonly --calendar=full
+```
+
+This opens a browser window for Google OAuth. Run the command once per account — credentials are saved locally in `tokens.json`. Re-running the command for an already-authenticated email replaces its stored permissions.
 
 > **Note:** Your Google Cloud project will be in "Testing" status, so Google shows a "Google hasn't verified this app" warning. Click **Advanced** then **Go to [Your App Name] (unsafe)** — this is expected since you built the app yourself.
 
-> **Re-authenticating existing accounts:** If you authenticated an account before Calendar/Drive support was added (or before draft-only mode became read-only for Calendar/Drive), re-run the `npm run auth` command for that account with the same mode flag to pick up the current scopes. Google reuses the same consent flow, so no new credentials are needed.
+> **Re-authenticating existing accounts:** If an account was authenticated before Calendar/Drive support existed, or before the granular per-service permission model, its stored scopes may be missing or narrower than what a tool call needs. Re-run `npm run auth` with the flags for the access you want — Google reuses the same consent flow, so no new credentials are needed. Old `tokens.json` entries (with the previous `readonly`/`draft_only` booleans) still work and are read as their closest equivalent (`--readonly` → all read-only, `--draftonly` → Gmail draft-only with Calendar/Drive/Chat read-only) until you re-auth them.
 
 ## 4. Connecting to Claude Desktop
 
