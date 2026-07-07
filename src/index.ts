@@ -92,6 +92,10 @@ const TOOLS: Tool[] = [
                 maxResults: {
                     type: "number",
                     description: "Maximum number of results to return (default: 10)."
+                },
+                pageToken: {
+                    type: "string",
+                    description: "Pagination token from a previous call's nextPageToken, to fetch the next page of results."
                 }
             },
             required: ["email", "query"]
@@ -232,6 +236,10 @@ const TOOLS: Tool[] = [
                 maxResults: {
                     type: "number",
                     description: "Maximum number of spaces to return (default: 25)."
+                },
+                pageToken: {
+                    type: "string",
+                    description: "Pagination token from a previous call's nextPageToken, to fetch the next page of results."
                 }
             },
             required: ["email"]
@@ -254,6 +262,10 @@ const TOOLS: Tool[] = [
                 maxResults: {
                     type: "number",
                     description: "Maximum number of messages to return (default: 25)."
+                },
+                pageToken: {
+                    type: "string",
+                    description: "Pagination token from a previous call's nextPageToken, to fetch the next page of results."
                 }
             },
             required: ["email", "spaceName"]
@@ -261,7 +273,7 @@ const TOOLS: Tool[] = [
     },
     {
         name: "chat_send_message",
-        description: "Send a message to a Google Chat space.",
+        description: "Send a message to a Google Chat space, optionally as a reply within an existing thread.",
         inputSchema: {
             type: "object",
             properties: {
@@ -276,9 +288,35 @@ const TOOLS: Tool[] = [
                 text: {
                     type: "string",
                     description: "The message text to send."
+                },
+                threadName: {
+                    type: "string",
+                    description: "Thread resource name to reply within (e.g. 'spaces/XXXXXX/threads/YYYYYY'), from chat_list_messages threadName field. Omit to start a new thread."
                 }
             },
             required: ["email", "spaceName", "text"]
+        }
+    },
+    {
+        name: "chat_add_reaction",
+        description: "Add an emoji reaction to a Google Chat message.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: {
+                    type: "string",
+                    description: "The authenticated Google account to react as."
+                },
+                messageName: {
+                    type: "string",
+                    description: "The message resource name to react to (e.g. 'spaces/XXXXXX/messages/YYYYYY'), from chat_list_messages name field."
+                },
+                emoji: {
+                    type: "string",
+                    description: "The emoji unicode character to react with (e.g. '👍', '❤️')."
+                }
+            },
+            required: ["email", "messageName", "emoji"]
         }
     },
     {
@@ -540,7 +578,8 @@ const TOOLS: Tool[] = [
             type: "object",
             properties: {
                 email: { type: "string", description: "The Gmail address to list drafts for." },
-                maxResults: { type: "number", description: "Maximum number of drafts to return (default: 10)." }
+                maxResults: { type: "number", description: "Maximum number of drafts to return (default: 10)." },
+                pageToken: { type: "string", description: "Pagination token from a previous call's nextPageToken, to fetch the next page of results." }
             },
             required: ["email"]
         }
@@ -581,7 +620,8 @@ const TOOLS: Tool[] = [
                 maxResults: { type: "number", description: "Maximum number of events to return (default: 10)." },
                 timeMin: { type: "string", description: "Start of time range in ISO 8601 format (e.g. '2024-01-01T00:00:00Z'). Defaults to now." },
                 timeMax: { type: "string", description: "End of time range in ISO 8601 format." },
-                query: { type: "string", description: "Free text search query to filter events." }
+                query: { type: "string", description: "Free text search query to filter events." },
+                pageToken: { type: "string", description: "Pagination token from a previous call's nextPageToken, to fetch the next page of results." }
             },
             required: ["email", "calendarId"]
         }
@@ -665,6 +705,20 @@ const TOOLS: Tool[] = [
             required: ["email", "calendarId", "text"]
         }
     },
+    {
+        name: "calendar_respond_to_event",
+        description: "RSVP to a calendar event invitation as the authenticated account (accept, decline, or tentative).",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The authenticated Google account (must be an attendee of the event)." },
+                calendarId: { type: "string", description: "The calendar ID. Use 'primary' for the main calendar." },
+                eventId: { type: "string", description: "The event ID to respond to (from calendar_list_events)." },
+                responseStatus: { type: "string", enum: ["accepted", "declined", "tentative"], description: "The RSVP response to record." }
+            },
+            required: ["email", "calendarId", "eventId", "responseStatus"]
+        }
+    },
 
     // --- Google Drive Tools ---
     {
@@ -675,7 +729,8 @@ const TOOLS: Tool[] = [
             properties: {
                 email: { type: "string", description: "The authenticated Google account." },
                 folderId: { type: "string", description: "Folder ID to list contents of. Omit or use 'root' for the root folder." },
-                maxResults: { type: "number", description: "Maximum number of files to return (default: 20)." }
+                maxResults: { type: "number", description: "Maximum number of files to return (default: 20)." },
+                pageToken: { type: "string", description: "Pagination token from a previous call's nextPageToken, to fetch the next page of results." }
             },
             required: ["email"]
         }
@@ -688,7 +743,8 @@ const TOOLS: Tool[] = [
             properties: {
                 email: { type: "string", description: "The authenticated Google account." },
                 query: { type: "string", description: "Search query. Supports Drive query syntax (e.g. \"name contains 'report'\", \"mimeType='application/pdf'\")." },
-                maxResults: { type: "number", description: "Maximum number of results to return (default: 20)." }
+                maxResults: { type: "number", description: "Maximum number of results to return (default: 20)." },
+                pageToken: { type: "string", description: "Pagination token from a previous call's nextPageToken, to fetch the next page of results." }
             },
             required: ["email", "query"]
         }
@@ -713,6 +769,19 @@ const TOOLS: Tool[] = [
             properties: {
                 email: { type: "string", description: "The authenticated Google account." },
                 fileId: { type: "string", description: "The file ID (from drive_list_files or drive_search_files)." }
+            },
+            required: ["email", "fileId"]
+        }
+    },
+    {
+        name: "drive_download_file",
+        description: "Download a file from Google Drive as base64-encoded binary content. Use for images, PDFs, zips, and other non-text files. Google Docs/Sheets/Slides are exported to a concrete format (default PDF).",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The authenticated Google account." },
+                fileId: { type: "string", description: "The file ID (from drive_list_files or drive_search_files)." },
+                exportMimeType: { type: "string", description: "MIME type to export Google-native files (Docs/Sheets/Slides) as (default 'application/pdf'). Ignored for non-Google-native files." }
             },
             required: ["email", "fileId"]
         }
@@ -801,14 +870,15 @@ async function listAccounts() {
     return `Authenticated Accounts:\n${accountsInfo}`;
 }
 
-async function searchEmails(email: string, query: string, maxResults: number = 10) {
+async function searchEmails(email: string, query: string, maxResults: number = 10, pageToken?: string) {
     const { client } = await getAuthClient(email);
     const gmail = google.gmail({ version: 'v1', auth: client });
 
     const response = await gmail.users.messages.list({
         userId: 'me',
         q: query,
-        maxResults
+        maxResults,
+        pageToken
     });
 
     const messages = response.data.messages;
@@ -851,7 +921,7 @@ async function searchEmails(email: string, query: string, maxResults: number = 1
 
     const validMessages = detailedMessages.filter(m => m !== null);
 
-    return JSON.stringify(validMessages, null, 2);
+    return JSON.stringify({ emails: validMessages, nextPageToken: response.data.nextPageToken || null }, null, 2);
 }
 
 function extractText(part: any): string {
@@ -1256,10 +1326,10 @@ async function listLabels(email: string) {
     return JSON.stringify(labels, null, 2);
 }
 
-async function listDrafts(email: string, maxResults: number = 10) {
+async function listDrafts(email: string, maxResults: number = 10, pageToken?: string) {
     const { client } = await getAuthClient(email);
     const gmail = google.gmail({ version: 'v1', auth: client });
-    const response = await gmail.users.drafts.list({ userId: 'me', maxResults });
+    const response = await gmail.users.drafts.list({ userId: 'me', maxResults, pageToken });
     const drafts = response.data.drafts;
     if (!drafts || drafts.length === 0) return 'No drafts found.';
 
@@ -1277,7 +1347,7 @@ async function listDrafts(email: string, maxResults: number = 10) {
             };
         } catch { return null; }
     }));
-    return JSON.stringify(detailed.filter(Boolean), null, 2);
+    return JSON.stringify({ drafts: detailed.filter(Boolean), nextPageToken: response.data.nextPageToken || null }, null, 2);
 }
 
 async function sendDraft(email: string, draftId: string) {
@@ -1291,11 +1361,11 @@ async function sendDraft(email: string, draftId: string) {
 
 // --- Google Chat Implementations ---
 
-async function chatListSpaces(email: string, maxResults: number = 25) {
+async function chatListSpaces(email: string, maxResults: number = 25, pageToken?: string) {
     const { client } = await getAuthClient(email);
     const chat = google.chat({ version: 'v1', auth: client });
 
-    const response = await chat.spaces.list({ pageSize: maxResults });
+    const response = await chat.spaces.list({ pageSize: maxResults, pageToken });
     const spaces = response.data.spaces;
 
     if (!spaces || spaces.length === 0) {
@@ -1308,17 +1378,18 @@ async function chatListSpaces(email: string, maxResults: number = 25) {
         type: s.spaceType,
     }));
 
-    return JSON.stringify(result, null, 2);
+    return JSON.stringify({ spaces: result, nextPageToken: response.data.nextPageToken || null }, null, 2);
 }
 
-async function chatListMessages(email: string, spaceName: string, maxResults: number = 25) {
+async function chatListMessages(email: string, spaceName: string, maxResults: number = 25, pageToken?: string) {
     const { client } = await getAuthClient(email);
     const chat = google.chat({ version: 'v1', auth: client });
 
     const response = await chat.spaces.messages.list({
         parent: spaceName,
         pageSize: maxResults,
-        orderBy: 'createTime desc'
+        orderBy: 'createTime desc',
+        pageToken
     });
 
     const messages = response.data.messages;
@@ -1328,15 +1399,16 @@ async function chatListMessages(email: string, spaceName: string, maxResults: nu
 
     const result = messages.map(m => ({
         name: m.name,
+        threadName: m.thread?.name,
         sender: m.sender?.displayName || m.sender?.name || 'Unknown',
         text: m.text || m.formattedText || '',
         createTime: m.createTime,
     }));
 
-    return JSON.stringify(result, null, 2);
+    return JSON.stringify({ messages: result, nextPageToken: response.data.nextPageToken || null }, null, 2);
 }
 
-async function chatSendMessage(email: string, spaceName: string, text: string) {
+async function chatSendMessage(email: string, spaceName: string, text: string, threadName?: string) {
     const { client, isReadonly, isDraftOnly } = await getAuthClient(email);
     if (isReadonly) {
         throw new Error(`Cannot send Chat messages from ${email}: Account is configured in Read-Only mode.`);
@@ -1349,10 +1421,33 @@ async function chatSendMessage(email: string, spaceName: string, text: string) {
 
     const response = await chat.spaces.messages.create({
         parent: spaceName,
-        requestBody: { text }
+        messageReplyOption: threadName ? 'REPLY_MESSAGE_OR_FAIL' : undefined,
+        requestBody: {
+            text,
+            thread: threadName ? { name: threadName } : undefined
+        }
     });
 
     return `Message sent successfully. Message name: ${response.data.name}`;
+}
+
+async function chatAddReaction(email: string, messageName: string, emoji: string) {
+    const { client, isReadonly, isDraftOnly } = await getAuthClient(email);
+    if (isReadonly) {
+        throw new Error(`Cannot add reactions from ${email}: Account is configured in Read-Only mode.`);
+    }
+    if (isDraftOnly) {
+        throw new Error(`Cannot add reactions from ${email}: Account is configured in Draft-Only mode.`);
+    }
+
+    const chat = google.chat({ version: 'v1', auth: client });
+
+    await chat.spaces.messages.reactions.create({
+        parent: messageName,
+        requestBody: { emoji: { unicode: emoji } }
+    });
+
+    return `Reaction '${emoji}' added to message ${messageName}.`;
 }
 
 
@@ -1373,7 +1468,7 @@ async function calendarListCalendars(email: string) {
     return JSON.stringify(items, null, 2);
 }
 
-async function calendarListEvents(email: string, calendarId: string, maxResults: number = 10, timeMin?: string, timeMax?: string, query?: string) {
+async function calendarListEvents(email: string, calendarId: string, maxResults: number = 10, timeMin?: string, timeMax?: string, query?: string, pageToken?: string) {
     const { client } = await getAuthClient(email);
     const calendar = google.calendar({ version: 'v3', auth: client });
     const response = await calendar.events.list({
@@ -1383,7 +1478,8 @@ async function calendarListEvents(email: string, calendarId: string, maxResults:
         orderBy: 'startTime',
         timeMin: timeMin || new Date().toISOString(),
         timeMax: timeMax || undefined,
-        q: query || undefined
+        q: query || undefined,
+        pageToken
     });
     const events = (response.data.items || []).map(e => ({
         id: e.id,
@@ -1396,7 +1492,7 @@ async function calendarListEvents(email: string, calendarId: string, maxResults:
         status: e.status,
         htmlLink: e.htmlLink
     }));
-    return JSON.stringify(events, null, 2);
+    return JSON.stringify({ events, nextPageToken: response.data.nextPageToken || null }, null, 2);
 }
 
 async function calendarGetEvent(email: string, calendarId: string, eventId: string) {
@@ -1432,8 +1528,9 @@ async function calendarCreateEvent(
     isAllDay?: boolean,
     timeZone?: string
 ) {
-    const { client, isReadonly } = await getAuthClient(email);
+    const { client, isReadonly, isDraftOnly } = await getAuthClient(email);
     if (isReadonly) throw new Error(`Cannot create events from ${email}: Account is configured in Read-Only mode.`);
+    if (isDraftOnly) throw new Error(`Cannot create events from ${email}: Account is configured in Draft-Only mode (Calendar changes require full access).`);
     const calendar = google.calendar({ version: 'v3', auth: client });
 
     const attendeeList = attendees ? attendees.split(',').map(a => ({ email: a.trim() })) : [];
@@ -1467,8 +1564,9 @@ async function calendarUpdateEvent(
     attendees?: string,
     timeZone?: string
 ) {
-    const { client, isReadonly } = await getAuthClient(email);
+    const { client, isReadonly, isDraftOnly } = await getAuthClient(email);
     if (isReadonly) throw new Error(`Cannot update events from ${email}: Account is configured in Read-Only mode.`);
+    if (isDraftOnly) throw new Error(`Cannot update events from ${email}: Account is configured in Draft-Only mode (Calendar changes require full access).`);
     const calendar = google.calendar({ version: 'v3', auth: client });
 
     // Fetch existing event to patch
@@ -1486,32 +1584,55 @@ async function calendarUpdateEvent(
 }
 
 async function calendarDeleteEvent(email: string, calendarId: string, eventId: string) {
-    const { client, isReadonly } = await getAuthClient(email);
+    const { client, isReadonly, isDraftOnly } = await getAuthClient(email);
     if (isReadonly) throw new Error(`Cannot delete events from ${email}: Account is configured in Read-Only mode.`);
+    if (isDraftOnly) throw new Error(`Cannot delete events from ${email}: Account is configured in Draft-Only mode (Calendar changes require full access).`);
     const calendar = google.calendar({ version: 'v3', auth: client });
     await calendar.events.delete({ calendarId, eventId });
     return `Event ${eventId} deleted.`;
 }
 
 async function calendarQuickAdd(email: string, calendarId: string, text: string) {
-    const { client, isReadonly } = await getAuthClient(email);
+    const { client, isReadonly, isDraftOnly } = await getAuthClient(email);
     if (isReadonly) throw new Error(`Cannot create events from ${email}: Account is configured in Read-Only mode.`);
+    if (isDraftOnly) throw new Error(`Cannot create events from ${email}: Account is configured in Draft-Only mode (Calendar changes require full access).`);
     const calendar = google.calendar({ version: 'v3', auth: client });
     const response = await calendar.events.quickAdd({ calendarId, text });
     return `Event created. ID: ${response.data.id}, Title: ${response.data.summary}, Start: ${response.data.start?.dateTime || response.data.start?.date}, Link: ${response.data.htmlLink}`;
 }
 
+async function calendarRespondToEvent(email: string, calendarId: string, eventId: string, responseStatus: 'accepted' | 'declined' | 'tentative') {
+    const { client, isReadonly, isDraftOnly } = await getAuthClient(email);
+    if (isReadonly) throw new Error(`Cannot respond to events from ${email}: Account is configured in Read-Only mode.`);
+    if (isDraftOnly) throw new Error(`Cannot respond to events from ${email}: Account is configured in Draft-Only mode (Calendar changes require full access).`);
+    const calendar = google.calendar({ version: 'v3', auth: client });
+
+    const existing = await calendar.events.get({ calendarId, eventId });
+    const attendees = existing.data.attendees || [];
+    const selfIndex = attendees.findIndex(a => a.email?.toLowerCase() === email.toLowerCase());
+
+    if (selfIndex === -1) {
+        throw new Error(`Account ${email} is not listed as an attendee of event ${eventId}.`);
+    }
+
+    attendees[selfIndex] = { ...attendees[selfIndex], responseStatus };
+
+    const response = await calendar.events.patch({ calendarId, eventId, requestBody: { attendees } });
+    return `RSVP updated to '${responseStatus}' for event ${eventId}. Link: ${response.data.htmlLink}`;
+}
+
 
 // --- Google Drive Implementations ---
 
-async function driveListFiles(email: string, folderId?: string, maxResults: number = 20) {
+async function driveListFiles(email: string, folderId?: string, maxResults: number = 20, pageToken?: string) {
     const { client } = await getAuthClient(email);
     const drive = google.drive({ version: 'v3', auth: client });
     const parent = folderId || 'root';
     const response = await drive.files.list({
         q: `'${parent}' in parents and trashed = false`,
         pageSize: maxResults,
-        fields: 'files(id,name,mimeType,size,modifiedTime,webViewLink,parents)'
+        pageToken,
+        fields: 'nextPageToken, files(id,name,mimeType,size,modifiedTime,webViewLink,parents)'
     });
     const files = (response.data.files || []).map(f => ({
         id: f.id,
@@ -1521,16 +1642,17 @@ async function driveListFiles(email: string, folderId?: string, maxResults: numb
         modifiedTime: f.modifiedTime,
         webViewLink: f.webViewLink
     }));
-    return JSON.stringify(files, null, 2);
+    return JSON.stringify({ files, nextPageToken: response.data.nextPageToken || null }, null, 2);
 }
 
-async function driveSearchFiles(email: string, query: string, maxResults: number = 20) {
+async function driveSearchFiles(email: string, query: string, maxResults: number = 20, pageToken?: string) {
     const { client } = await getAuthClient(email);
     const drive = google.drive({ version: 'v3', auth: client });
     const response = await drive.files.list({
         q: `${query} and trashed = false`,
         pageSize: maxResults,
-        fields: 'files(id,name,mimeType,size,modifiedTime,webViewLink,parents)'
+        pageToken,
+        fields: 'nextPageToken, files(id,name,mimeType,size,modifiedTime,webViewLink,parents)'
     });
     const files = (response.data.files || []).map(f => ({
         id: f.id,
@@ -1540,7 +1662,7 @@ async function driveSearchFiles(email: string, query: string, maxResults: number
         modifiedTime: f.modifiedTime,
         webViewLink: f.webViewLink
     }));
-    return JSON.stringify(files, null, 2);
+    return JSON.stringify({ files, nextPageToken: response.data.nextPageToken || null }, null, 2);
 }
 
 async function driveGetFile(email: string, fileId: string) {
@@ -1580,9 +1702,40 @@ async function driveReadFile(email: string, fileId: string) {
     return response.data as string;
 }
 
+async function driveDownloadFile(email: string, fileId: string, exportMimeType?: string) {
+    const { client } = await getAuthClient(email);
+    const drive = google.drive({ version: 'v3', auth: client });
+
+    const meta = await drive.files.get({ fileId, fields: 'name,mimeType' });
+    const originalMimeType = meta.data.mimeType || 'application/octet-stream';
+    const filename = meta.data.name || 'file';
+
+    let buffer: Buffer;
+    let mimeType: string;
+
+    if (originalMimeType.startsWith('application/vnd.google-apps.')) {
+        // Google-native files (Docs, Sheets, Slides) must be exported to a concrete format
+        mimeType = exportMimeType || 'application/pdf';
+        const response = await drive.files.export({ fileId, mimeType }, { responseType: 'arraybuffer' });
+        buffer = Buffer.from(response.data as ArrayBuffer);
+    } else {
+        mimeType = originalMimeType;
+        const response = await drive.files.get({ fileId, alt: 'media' }, { responseType: 'arraybuffer' });
+        buffer = Buffer.from(response.data as ArrayBuffer);
+    }
+
+    return JSON.stringify({
+        filename,
+        mimeType,
+        size: buffer.length,
+        data: buffer.toString('base64')
+    });
+}
+
 async function driveUploadFile(email: string, filename: string, mimeType: string, data: string, folderId?: string) {
-    const { client, isReadonly } = await getAuthClient(email);
+    const { client, isReadonly, isDraftOnly } = await getAuthClient(email);
     if (isReadonly) throw new Error(`Cannot upload files from ${email}: Account is configured in Read-Only mode.`);
+    if (isDraftOnly) throw new Error(`Cannot upload files from ${email}: Account is configured in Draft-Only mode (Drive changes require full access).`);
     const drive = google.drive({ version: 'v3', auth: client });
 
     const buffer = Buffer.from(data, 'base64');
@@ -1601,8 +1754,9 @@ async function driveUploadFile(email: string, filename: string, mimeType: string
 }
 
 async function driveCreateFolder(email: string, name: string, parentFolderId?: string) {
-    const { client, isReadonly } = await getAuthClient(email);
+    const { client, isReadonly, isDraftOnly } = await getAuthClient(email);
     if (isReadonly) throw new Error(`Cannot create folders from ${email}: Account is configured in Read-Only mode.`);
+    if (isDraftOnly) throw new Error(`Cannot create folders from ${email}: Account is configured in Draft-Only mode (Drive changes require full access).`);
     const drive = google.drive({ version: 'v3', auth: client });
     const response = await drive.files.create({
         requestBody: {
@@ -1616,16 +1770,18 @@ async function driveCreateFolder(email: string, name: string, parentFolderId?: s
 }
 
 async function driveDeleteFile(email: string, fileId: string) {
-    const { client, isReadonly } = await getAuthClient(email);
+    const { client, isReadonly, isDraftOnly } = await getAuthClient(email);
     if (isReadonly) throw new Error(`Cannot delete files from ${email}: Account is configured in Read-Only mode.`);
+    if (isDraftOnly) throw new Error(`Cannot delete files from ${email}: Account is configured in Draft-Only mode (Drive changes require full access).`);
     const drive = google.drive({ version: 'v3', auth: client });
     await drive.files.delete({ fileId });
     return `File ${fileId} deleted.`;
 }
 
 async function driveShareFile(email: string, fileId: string, shareWithEmail: string, role: string = 'reader', sendNotification: boolean = true) {
-    const { client, isReadonly } = await getAuthClient(email);
+    const { client, isReadonly, isDraftOnly } = await getAuthClient(email);
     if (isReadonly) throw new Error(`Cannot share files from ${email}: Account is configured in Read-Only mode.`);
+    if (isDraftOnly) throw new Error(`Cannot share files from ${email}: Account is configured in Draft-Only mode (Drive changes require full access).`);
     const drive = google.drive({ version: 'v3', auth: client });
     await drive.permissions.create({
         fileId,
@@ -1636,8 +1792,9 @@ async function driveShareFile(email: string, fileId: string, shareWithEmail: str
 }
 
 async function driveMoveFile(email: string, fileId: string, newParentFolderId: string) {
-    const { client, isReadonly } = await getAuthClient(email);
+    const { client, isReadonly, isDraftOnly } = await getAuthClient(email);
     if (isReadonly) throw new Error(`Cannot move files from ${email}: Account is configured in Read-Only mode.`);
+    if (isDraftOnly) throw new Error(`Cannot move files from ${email}: Account is configured in Draft-Only mode (Drive changes require full access).`);
     const drive = google.drive({ version: 'v3', auth: client });
 
     // Get current parents
@@ -1674,7 +1831,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                     throw new Error("Missing or invalid arguments for gmail_search.");
                 }
                 const maxResults = typeof args.maxResults === 'number' ? args.maxResults : 10;
-                result = await searchEmails(args.email, args.query, maxResults);
+                result = await searchEmails(args.email, args.query, maxResults, typeof args.pageToken === 'string' ? args.pageToken : undefined);
                 break;
             case "gmail_read":
                 if (!args || typeof args.email !== 'string' || typeof args.messageId !== 'string') {
@@ -1698,19 +1855,25 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 if (!args || typeof args.email !== 'string') {
                     throw new Error("Missing or invalid arguments for chat_list_spaces.");
                 }
-                result = await chatListSpaces(args.email, typeof args.maxResults === 'number' ? args.maxResults : 25);
+                result = await chatListSpaces(args.email, typeof args.maxResults === 'number' ? args.maxResults : 25, typeof args.pageToken === 'string' ? args.pageToken : undefined);
                 break;
             case "chat_list_messages":
                 if (!args || typeof args.email !== 'string' || typeof args.spaceName !== 'string') {
                     throw new Error("Missing or invalid arguments for chat_list_messages.");
                 }
-                result = await chatListMessages(args.email, args.spaceName, typeof args.maxResults === 'number' ? args.maxResults : 25);
+                result = await chatListMessages(args.email, args.spaceName, typeof args.maxResults === 'number' ? args.maxResults : 25, typeof args.pageToken === 'string' ? args.pageToken : undefined);
                 break;
             case "chat_send_message":
                 if (!args || typeof args.email !== 'string' || typeof args.spaceName !== 'string' || typeof args.text !== 'string') {
                     throw new Error("Missing or invalid arguments for chat_send_message.");
                 }
-                result = await chatSendMessage(args.email, args.spaceName, args.text);
+                result = await chatSendMessage(args.email, args.spaceName, args.text, typeof args.threadName === 'string' ? args.threadName : undefined);
+                break;
+            case "chat_add_reaction":
+                if (!args || typeof args.email !== 'string' || typeof args.messageName !== 'string' || typeof args.emoji !== 'string') {
+                    throw new Error("Missing or invalid arguments for chat_add_reaction.");
+                }
+                result = await chatAddReaction(args.email, args.messageName, args.emoji);
                 break;
             case "gmail_get_attachment":
                 if (!args || typeof args.email !== 'string' || typeof args.messageId !== 'string' || typeof args.attachmentId !== 'string') {
@@ -1807,7 +1970,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 if (!args || typeof args.email !== 'string') {
                     throw new Error("Missing or invalid arguments for gmail_list_drafts.");
                 }
-                result = await listDrafts(args.email, typeof args.maxResults === 'number' ? args.maxResults : 10);
+                result = await listDrafts(args.email, typeof args.maxResults === 'number' ? args.maxResults : 10, typeof args.pageToken === 'string' ? args.pageToken : undefined);
                 break;
             case "gmail_send_draft":
                 if (!args || typeof args.email !== 'string' || typeof args.draftId !== 'string') {
@@ -1823,7 +1986,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 break;
             case "calendar_list_events":
                 if (!args || typeof args.email !== 'string' || typeof args.calendarId !== 'string') throw new Error("Missing or invalid arguments for calendar_list_events.");
-                result = await calendarListEvents(args.email, args.calendarId, typeof args.maxResults === 'number' ? args.maxResults : 10, typeof args.timeMin === 'string' ? args.timeMin : undefined, typeof args.timeMax === 'string' ? args.timeMax : undefined, typeof args.query === 'string' ? args.query : undefined);
+                result = await calendarListEvents(args.email, args.calendarId, typeof args.maxResults === 'number' ? args.maxResults : 10, typeof args.timeMin === 'string' ? args.timeMin : undefined, typeof args.timeMax === 'string' ? args.timeMax : undefined, typeof args.query === 'string' ? args.query : undefined, typeof args.pageToken === 'string' ? args.pageToken : undefined);
                 break;
             case "calendar_get_event":
                 if (!args || typeof args.email !== 'string' || typeof args.calendarId !== 'string' || typeof args.eventId !== 'string') throw new Error("Missing or invalid arguments for calendar_get_event.");
@@ -1845,15 +2008,19 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 if (!args || typeof args.email !== 'string' || typeof args.calendarId !== 'string' || typeof args.text !== 'string') throw new Error("Missing or invalid arguments for calendar_quick_add.");
                 result = await calendarQuickAdd(args.email, args.calendarId, args.text);
                 break;
+            case "calendar_respond_to_event":
+                if (!args || typeof args.email !== 'string' || typeof args.calendarId !== 'string' || typeof args.eventId !== 'string' || typeof args.responseStatus !== 'string') throw new Error("Missing or invalid arguments for calendar_respond_to_event.");
+                result = await calendarRespondToEvent(args.email, args.calendarId, args.eventId, args.responseStatus as 'accepted' | 'declined' | 'tentative');
+                break;
 
             // Drive cases
             case "drive_list_files":
                 if (!args || typeof args.email !== 'string') throw new Error("Missing or invalid arguments for drive_list_files.");
-                result = await driveListFiles(args.email, typeof args.folderId === 'string' ? args.folderId : undefined, typeof args.maxResults === 'number' ? args.maxResults : 20);
+                result = await driveListFiles(args.email, typeof args.folderId === 'string' ? args.folderId : undefined, typeof args.maxResults === 'number' ? args.maxResults : 20, typeof args.pageToken === 'string' ? args.pageToken : undefined);
                 break;
             case "drive_search_files":
                 if (!args || typeof args.email !== 'string' || typeof args.query !== 'string') throw new Error("Missing or invalid arguments for drive_search_files.");
-                result = await driveSearchFiles(args.email, args.query, typeof args.maxResults === 'number' ? args.maxResults : 20);
+                result = await driveSearchFiles(args.email, args.query, typeof args.maxResults === 'number' ? args.maxResults : 20, typeof args.pageToken === 'string' ? args.pageToken : undefined);
                 break;
             case "drive_get_file":
                 if (!args || typeof args.email !== 'string' || typeof args.fileId !== 'string') throw new Error("Missing or invalid arguments for drive_get_file.");
@@ -1862,6 +2029,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             case "drive_read_file":
                 if (!args || typeof args.email !== 'string' || typeof args.fileId !== 'string') throw new Error("Missing or invalid arguments for drive_read_file.");
                 result = await driveReadFile(args.email, args.fileId);
+                break;
+            case "drive_download_file":
+                if (!args || typeof args.email !== 'string' || typeof args.fileId !== 'string') throw new Error("Missing or invalid arguments for drive_download_file.");
+                result = await driveDownloadFile(args.email, args.fileId, typeof args.exportMimeType === 'string' ? args.exportMimeType : undefined);
                 break;
             case "drive_upload_file":
                 if (!args || typeof args.email !== 'string' || typeof args.filename !== 'string' || typeof args.mimeType !== 'string' || typeof args.data !== 'string') throw new Error("Missing or invalid arguments for drive_upload_file.");

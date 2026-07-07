@@ -40,7 +40,7 @@ npm run auth
 # Read-only (no drafting or sending)
 npm run auth -- --readonly
 
-# Draft-only (can read and draft, but not send)
+# Draft-only (can read and draft, but not send; Calendar/Drive are read-only)
 npm run auth -- --draftonly
 ```
 
@@ -48,7 +48,7 @@ This opens a browser window for Google OAuth. Run the command once per account â
 
 > **Note:** Your Google Cloud project will be in "Testing" status, so Google shows a "Google hasn't verified this app" warning. Click **Advanced** then **Go to [Your App Name] (unsafe)** â€” this is expected since you built the app yourself.
 
-> **Re-authenticating existing accounts:** If you authenticated an account before Calendar/Drive support was added, re-run the `npm run auth` command for that account to grant the additional scopes. Google reuses the same consent flow, so no new credentials are needed.
+> **Re-authenticating existing accounts:** If you authenticated an account before Calendar/Drive support was added (or before draft-only mode became read-only for Calendar/Drive), re-run the `npm run auth` command for that account with the same mode flag to pick up the current scopes. Google reuses the same consent flow, so no new credentials are needed.
 
 ## 4. Connecting to Claude Desktop
 
@@ -194,6 +194,7 @@ If you run into module resolution errors, set the `NODE_PATH` environment variab
 | `calendar_update_event` | Update fields on an existing event |
 | `calendar_delete_event` | Delete an event |
 | `calendar_quick_add` | Create an event from natural language text |
+| `calendar_respond_to_event` | RSVP to an event invitation (accept/decline/tentative) |
 
 ### Google Drive
 
@@ -202,7 +203,8 @@ If you run into module resolution errors, set the `NODE_PATH` environment variab
 | `drive_list_files` | List files/folders in a given folder (or root) |
 | `drive_search_files` | Search using Drive query syntax |
 | `drive_get_file` | Get metadata for a file or folder |
-| `drive_read_file` | Read text content (exports Google Docs/Sheets/Slides) |
+| `drive_read_file` | Read text content (exports Google Docs/Sheets/Slides as text) |
+| `drive_download_file` | Download binary content as base64 (images, PDFs, zips, etc.) |
 | `drive_upload_file` | Upload a base64-encoded file |
 | `drive_create_folder` | Create a new folder |
 | `drive_delete_file` | Move a file or folder to trash |
@@ -215,7 +217,14 @@ If you run into module resolution errors, set the `NODE_PATH` environment variab
 |---|---|
 | `chat_list_spaces` | List Chat spaces/rooms the account belongs to |
 | `chat_list_messages` | List recent messages in a space |
-| `chat_send_message` | Send a message to a space |
+| `chat_send_message` | Send a message to a space (optionally as a thread reply) |
+| `chat_add_reaction` | Add an emoji reaction to a message |
+
+> **Note:** The Chat API does not support arbitrary DM creation via user-authenticated OAuth (it requires resolving Chat user IDs through the People/Admin API). `chat_list_spaces` already lists existing DM spaces you can send to.
+
+### Pagination
+
+`gmail_search`, `gmail_list_drafts`, `drive_list_files`, `drive_search_files`, `calendar_list_events`, `chat_list_spaces`, and `chat_list_messages` accept an optional `pageToken` parameter and return a `nextPageToken` field in their JSON response. Pass the returned `nextPageToken` back in as `pageToken` to fetch the next page; a `null` value means there are no more results.
 
 ### Content Type Support
 
