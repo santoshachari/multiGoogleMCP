@@ -556,6 +556,234 @@ const TOOLS: Tool[] = [
             },
             required: ["email", "draftId"]
         }
+    },
+
+    // --- Google Calendar Tools ---
+    {
+        name: "calendar_list_calendars",
+        description: "List all calendars in a Google account.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The authenticated Google account." }
+            },
+            required: ["email"]
+        }
+    },
+    {
+        name: "calendar_list_events",
+        description: "List upcoming events in a calendar.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The authenticated Google account." },
+                calendarId: { type: "string", description: "The calendar ID (from calendar_list_calendars). Use 'primary' for the main calendar." },
+                maxResults: { type: "number", description: "Maximum number of events to return (default: 10)." },
+                timeMin: { type: "string", description: "Start of time range in ISO 8601 format (e.g. '2024-01-01T00:00:00Z'). Defaults to now." },
+                timeMax: { type: "string", description: "End of time range in ISO 8601 format." },
+                query: { type: "string", description: "Free text search query to filter events." }
+            },
+            required: ["email", "calendarId"]
+        }
+    },
+    {
+        name: "calendar_get_event",
+        description: "Get details of a specific calendar event.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The authenticated Google account." },
+                calendarId: { type: "string", description: "The calendar ID. Use 'primary' for the main calendar." },
+                eventId: { type: "string", description: "The event ID (from calendar_list_events)." }
+            },
+            required: ["email", "calendarId", "eventId"]
+        }
+    },
+    {
+        name: "calendar_create_event",
+        description: "Create a new event in a Google Calendar.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The authenticated Google account." },
+                calendarId: { type: "string", description: "The calendar ID. Use 'primary' for the main calendar." },
+                title: { type: "string", description: "Title/summary of the event." },
+                startDateTime: { type: "string", description: "Start date/time in ISO 8601 format (e.g. '2024-06-15T10:00:00-07:00'). For all-day events use 'YYYY-MM-DD'." },
+                endDateTime: { type: "string", description: "End date/time in ISO 8601 format. For all-day events use 'YYYY-MM-DD'." },
+                description: { type: "string", description: "Description or notes for the event." },
+                location: { type: "string", description: "Location of the event." },
+                attendees: { type: "string", description: "Comma-separated list of attendee email addresses." },
+                isAllDay: { type: "boolean", description: "If true, startDateTime and endDateTime are treated as dates (YYYY-MM-DD) for an all-day event." },
+                timeZone: { type: "string", description: "Timezone for the event (e.g. 'America/Los_Angeles'). Defaults to account timezone." }
+            },
+            required: ["email", "calendarId", "title", "startDateTime", "endDateTime"]
+        }
+    },
+    {
+        name: "calendar_update_event",
+        description: "Update an existing calendar event.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The authenticated Google account." },
+                calendarId: { type: "string", description: "The calendar ID. Use 'primary' for the main calendar." },
+                eventId: { type: "string", description: "The event ID to update (from calendar_list_events)." },
+                title: { type: "string", description: "New title/summary." },
+                startDateTime: { type: "string", description: "New start date/time in ISO 8601 format." },
+                endDateTime: { type: "string", description: "New end date/time in ISO 8601 format." },
+                description: { type: "string", description: "New description." },
+                location: { type: "string", description: "New location." },
+                attendees: { type: "string", description: "Comma-separated list of attendee email addresses (replaces existing)." },
+                timeZone: { type: "string", description: "Timezone for the event." }
+            },
+            required: ["email", "calendarId", "eventId"]
+        }
+    },
+    {
+        name: "calendar_delete_event",
+        description: "Delete a calendar event.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The authenticated Google account." },
+                calendarId: { type: "string", description: "The calendar ID. Use 'primary' for the main calendar." },
+                eventId: { type: "string", description: "The event ID to delete (from calendar_list_events)." }
+            },
+            required: ["email", "calendarId", "eventId"]
+        }
+    },
+    {
+        name: "calendar_quick_add",
+        description: "Create a calendar event from a natural language string (e.g. 'Lunch with John tomorrow at noon').",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The authenticated Google account." },
+                calendarId: { type: "string", description: "The calendar ID. Use 'primary' for the main calendar." },
+                text: { type: "string", description: "Natural language description of the event." }
+            },
+            required: ["email", "calendarId", "text"]
+        }
+    },
+
+    // --- Google Drive Tools ---
+    {
+        name: "drive_list_files",
+        description: "List files and folders in Google Drive.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The authenticated Google account." },
+                folderId: { type: "string", description: "Folder ID to list contents of. Omit or use 'root' for the root folder." },
+                maxResults: { type: "number", description: "Maximum number of files to return (default: 20)." }
+            },
+            required: ["email"]
+        }
+    },
+    {
+        name: "drive_search_files",
+        description: "Search for files in Google Drive.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The authenticated Google account." },
+                query: { type: "string", description: "Search query. Supports Drive query syntax (e.g. \"name contains 'report'\", \"mimeType='application/pdf'\")." },
+                maxResults: { type: "number", description: "Maximum number of results to return (default: 20)." }
+            },
+            required: ["email", "query"]
+        }
+    },
+    {
+        name: "drive_get_file",
+        description: "Get metadata for a specific file or folder in Google Drive.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The authenticated Google account." },
+                fileId: { type: "string", description: "The file or folder ID (from drive_list_files or drive_search_files)." }
+            },
+            required: ["email", "fileId"]
+        }
+    },
+    {
+        name: "drive_read_file",
+        description: "Read the text content of a file in Google Drive. Works for Google Docs, plain text, and other text-based files.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The authenticated Google account." },
+                fileId: { type: "string", description: "The file ID (from drive_list_files or drive_search_files)." }
+            },
+            required: ["email", "fileId"]
+        }
+    },
+    {
+        name: "drive_upload_file",
+        description: "Upload a file to Google Drive.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The authenticated Google account." },
+                filename: { type: "string", description: "The name for the file in Drive." },
+                mimeType: { type: "string", description: "MIME type of the file (e.g. 'text/plain', 'application/pdf', 'image/png')." },
+                data: { type: "string", description: "Base64-encoded file content." },
+                folderId: { type: "string", description: "ID of the parent folder to upload into. Omit for root." }
+            },
+            required: ["email", "filename", "mimeType", "data"]
+        }
+    },
+    {
+        name: "drive_create_folder",
+        description: "Create a new folder in Google Drive.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The authenticated Google account." },
+                name: { type: "string", description: "Name of the new folder." },
+                parentFolderId: { type: "string", description: "ID of the parent folder. Omit for root." }
+            },
+            required: ["email", "name"]
+        }
+    },
+    {
+        name: "drive_delete_file",
+        description: "Delete a file or folder from Google Drive (moves to trash).",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The authenticated Google account." },
+                fileId: { type: "string", description: "The file or folder ID to delete." }
+            },
+            required: ["email", "fileId"]
+        }
+    },
+    {
+        name: "drive_share_file",
+        description: "Share a file or folder with another user.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The authenticated Google account." },
+                fileId: { type: "string", description: "The file or folder ID to share." },
+                shareWithEmail: { type: "string", description: "The email address of the person to share with." },
+                role: { type: "string", enum: ["reader", "commenter", "writer", "owner"], description: "Permission role to grant (default: reader)." },
+                sendNotification: { type: "boolean", description: "Whether to send a notification email to the recipient (default: true)." }
+            },
+            required: ["email", "fileId", "shareWithEmail"]
+        }
+    },
+    {
+        name: "drive_move_file",
+        description: "Move a file or folder to a different folder in Google Drive.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The authenticated Google account." },
+                fileId: { type: "string", description: "The file or folder ID to move." },
+                newParentFolderId: { type: "string", description: "The ID of the destination folder." }
+            },
+            required: ["email", "fileId", "newParentFolderId"]
+        }
     }
 ];
 
@@ -1128,6 +1356,304 @@ async function chatSendMessage(email: string, spaceName: string, text: string) {
 }
 
 
+// --- Google Calendar Implementations ---
+
+async function calendarListCalendars(email: string) {
+    const { client } = await getAuthClient(email);
+    const calendar = google.calendar({ version: 'v3', auth: client });
+    const response = await calendar.calendarList.list();
+    const items = (response.data.items || []).map(c => ({
+        id: c.id,
+        name: c.summary,
+        description: c.description,
+        primary: c.primary || false,
+        accessRole: c.accessRole,
+        timeZone: c.timeZone
+    }));
+    return JSON.stringify(items, null, 2);
+}
+
+async function calendarListEvents(email: string, calendarId: string, maxResults: number = 10, timeMin?: string, timeMax?: string, query?: string) {
+    const { client } = await getAuthClient(email);
+    const calendar = google.calendar({ version: 'v3', auth: client });
+    const response = await calendar.events.list({
+        calendarId,
+        maxResults,
+        singleEvents: true,
+        orderBy: 'startTime',
+        timeMin: timeMin || new Date().toISOString(),
+        timeMax: timeMax || undefined,
+        q: query || undefined
+    });
+    const events = (response.data.items || []).map(e => ({
+        id: e.id,
+        title: e.summary,
+        description: e.description,
+        location: e.location,
+        start: e.start?.dateTime || e.start?.date,
+        end: e.end?.dateTime || e.end?.date,
+        attendees: (e.attendees || []).map(a => ({ email: a.email, name: a.displayName, status: a.responseStatus })),
+        status: e.status,
+        htmlLink: e.htmlLink
+    }));
+    return JSON.stringify(events, null, 2);
+}
+
+async function calendarGetEvent(email: string, calendarId: string, eventId: string) {
+    const { client } = await getAuthClient(email);
+    const calendar = google.calendar({ version: 'v3', auth: client });
+    const response = await calendar.events.get({ calendarId, eventId });
+    const e = response.data;
+    return JSON.stringify({
+        id: e.id,
+        title: e.summary,
+        description: e.description,
+        location: e.location,
+        start: e.start?.dateTime || e.start?.date,
+        end: e.end?.dateTime || e.end?.date,
+        attendees: (e.attendees || []).map(a => ({ email: a.email, name: a.displayName, status: a.responseStatus })),
+        organizer: e.organizer,
+        status: e.status,
+        htmlLink: e.htmlLink,
+        created: e.created,
+        updated: e.updated
+    }, null, 2);
+}
+
+async function calendarCreateEvent(
+    email: string,
+    calendarId: string,
+    title: string,
+    startDateTime: string,
+    endDateTime: string,
+    description?: string,
+    location?: string,
+    attendees?: string,
+    isAllDay?: boolean,
+    timeZone?: string
+) {
+    const { client, isReadonly } = await getAuthClient(email);
+    if (isReadonly) throw new Error(`Cannot create events from ${email}: Account is configured in Read-Only mode.`);
+    const calendar = google.calendar({ version: 'v3', auth: client });
+
+    const attendeeList = attendees ? attendees.split(',').map(a => ({ email: a.trim() })) : [];
+
+    const startObj = isAllDay ? { date: startDateTime } : { dateTime: startDateTime, timeZone };
+    const endObj = isAllDay ? { date: endDateTime } : { dateTime: endDateTime, timeZone };
+
+    const response = await calendar.events.insert({
+        calendarId,
+        requestBody: {
+            summary: title,
+            description,
+            location,
+            start: startObj,
+            end: endObj,
+            attendees: attendeeList.length > 0 ? attendeeList : undefined
+        }
+    });
+    return `Event created. ID: ${response.data.id}, Link: ${response.data.htmlLink}`;
+}
+
+async function calendarUpdateEvent(
+    email: string,
+    calendarId: string,
+    eventId: string,
+    title?: string,
+    startDateTime?: string,
+    endDateTime?: string,
+    description?: string,
+    location?: string,
+    attendees?: string,
+    timeZone?: string
+) {
+    const { client, isReadonly } = await getAuthClient(email);
+    if (isReadonly) throw new Error(`Cannot update events from ${email}: Account is configured in Read-Only mode.`);
+    const calendar = google.calendar({ version: 'v3', auth: client });
+
+    // Fetch existing event to patch
+    const existing = await calendar.events.get({ calendarId, eventId });
+    const patch: any = {};
+    if (title !== undefined) patch.summary = title;
+    if (description !== undefined) patch.description = description;
+    if (location !== undefined) patch.location = location;
+    if (startDateTime !== undefined) patch.start = { dateTime: startDateTime, timeZone };
+    if (endDateTime !== undefined) patch.end = { dateTime: endDateTime, timeZone };
+    if (attendees !== undefined) patch.attendees = attendees.split(',').map(a => ({ email: a.trim() }));
+
+    const response = await calendar.events.patch({ calendarId, eventId, requestBody: patch });
+    return `Event updated. ID: ${response.data.id}, Link: ${response.data.htmlLink}`;
+}
+
+async function calendarDeleteEvent(email: string, calendarId: string, eventId: string) {
+    const { client, isReadonly } = await getAuthClient(email);
+    if (isReadonly) throw new Error(`Cannot delete events from ${email}: Account is configured in Read-Only mode.`);
+    const calendar = google.calendar({ version: 'v3', auth: client });
+    await calendar.events.delete({ calendarId, eventId });
+    return `Event ${eventId} deleted.`;
+}
+
+async function calendarQuickAdd(email: string, calendarId: string, text: string) {
+    const { client, isReadonly } = await getAuthClient(email);
+    if (isReadonly) throw new Error(`Cannot create events from ${email}: Account is configured in Read-Only mode.`);
+    const calendar = google.calendar({ version: 'v3', auth: client });
+    const response = await calendar.events.quickAdd({ calendarId, text });
+    return `Event created. ID: ${response.data.id}, Title: ${response.data.summary}, Start: ${response.data.start?.dateTime || response.data.start?.date}, Link: ${response.data.htmlLink}`;
+}
+
+
+// --- Google Drive Implementations ---
+
+async function driveListFiles(email: string, folderId?: string, maxResults: number = 20) {
+    const { client } = await getAuthClient(email);
+    const drive = google.drive({ version: 'v3', auth: client });
+    const parent = folderId || 'root';
+    const response = await drive.files.list({
+        q: `'${parent}' in parents and trashed = false`,
+        pageSize: maxResults,
+        fields: 'files(id,name,mimeType,size,modifiedTime,webViewLink,parents)'
+    });
+    const files = (response.data.files || []).map(f => ({
+        id: f.id,
+        name: f.name,
+        mimeType: f.mimeType,
+        size: f.size,
+        modifiedTime: f.modifiedTime,
+        webViewLink: f.webViewLink
+    }));
+    return JSON.stringify(files, null, 2);
+}
+
+async function driveSearchFiles(email: string, query: string, maxResults: number = 20) {
+    const { client } = await getAuthClient(email);
+    const drive = google.drive({ version: 'v3', auth: client });
+    const response = await drive.files.list({
+        q: `${query} and trashed = false`,
+        pageSize: maxResults,
+        fields: 'files(id,name,mimeType,size,modifiedTime,webViewLink,parents)'
+    });
+    const files = (response.data.files || []).map(f => ({
+        id: f.id,
+        name: f.name,
+        mimeType: f.mimeType,
+        size: f.size,
+        modifiedTime: f.modifiedTime,
+        webViewLink: f.webViewLink
+    }));
+    return JSON.stringify(files, null, 2);
+}
+
+async function driveGetFile(email: string, fileId: string) {
+    const { client } = await getAuthClient(email);
+    const drive = google.drive({ version: 'v3', auth: client });
+    const response = await drive.files.get({
+        fileId,
+        fields: 'id,name,mimeType,size,modifiedTime,createdTime,webViewLink,parents,owners,shared,description'
+    });
+    return JSON.stringify(response.data, null, 2);
+}
+
+async function driveReadFile(email: string, fileId: string) {
+    const { client } = await getAuthClient(email);
+    const drive = google.drive({ version: 'v3', auth: client });
+
+    // Get file metadata to determine type
+    const meta = await drive.files.get({ fileId, fields: 'mimeType,name' });
+    const mimeType = meta.data.mimeType || '';
+
+    // Export Google Docs/Sheets/Slides as plain text
+    if (mimeType === 'application/vnd.google-apps.document') {
+        const response = await drive.files.export({ fileId, mimeType: 'text/plain' }, { responseType: 'text' });
+        return response.data as string;
+    }
+    if (mimeType === 'application/vnd.google-apps.spreadsheet') {
+        const response = await drive.files.export({ fileId, mimeType: 'text/csv' }, { responseType: 'text' });
+        return response.data as string;
+    }
+    if (mimeType === 'application/vnd.google-apps.presentation') {
+        const response = await drive.files.export({ fileId, mimeType: 'text/plain' }, { responseType: 'text' });
+        return response.data as string;
+    }
+
+    // Download other text-based files
+    const response = await drive.files.get({ fileId, alt: 'media' }, { responseType: 'text' });
+    return response.data as string;
+}
+
+async function driveUploadFile(email: string, filename: string, mimeType: string, data: string, folderId?: string) {
+    const { client, isReadonly } = await getAuthClient(email);
+    if (isReadonly) throw new Error(`Cannot upload files from ${email}: Account is configured in Read-Only mode.`);
+    const drive = google.drive({ version: 'v3', auth: client });
+
+    const buffer = Buffer.from(data, 'base64');
+    const { Readable } = await import('stream');
+    const stream = Readable.from(buffer);
+
+    const response = await drive.files.create({
+        requestBody: {
+            name: filename,
+            parents: folderId ? [folderId] : undefined
+        },
+        media: { mimeType, body: stream },
+        fields: 'id,name,webViewLink'
+    });
+    return `File uploaded. ID: ${response.data.id}, Name: ${response.data.name}, Link: ${response.data.webViewLink}`;
+}
+
+async function driveCreateFolder(email: string, name: string, parentFolderId?: string) {
+    const { client, isReadonly } = await getAuthClient(email);
+    if (isReadonly) throw new Error(`Cannot create folders from ${email}: Account is configured in Read-Only mode.`);
+    const drive = google.drive({ version: 'v3', auth: client });
+    const response = await drive.files.create({
+        requestBody: {
+            name,
+            mimeType: 'application/vnd.google-apps.folder',
+            parents: parentFolderId ? [parentFolderId] : undefined
+        },
+        fields: 'id,name,webViewLink'
+    });
+    return `Folder created. ID: ${response.data.id}, Name: ${response.data.name}`;
+}
+
+async function driveDeleteFile(email: string, fileId: string) {
+    const { client, isReadonly } = await getAuthClient(email);
+    if (isReadonly) throw new Error(`Cannot delete files from ${email}: Account is configured in Read-Only mode.`);
+    const drive = google.drive({ version: 'v3', auth: client });
+    await drive.files.delete({ fileId });
+    return `File ${fileId} deleted.`;
+}
+
+async function driveShareFile(email: string, fileId: string, shareWithEmail: string, role: string = 'reader', sendNotification: boolean = true) {
+    const { client, isReadonly } = await getAuthClient(email);
+    if (isReadonly) throw new Error(`Cannot share files from ${email}: Account is configured in Read-Only mode.`);
+    const drive = google.drive({ version: 'v3', auth: client });
+    await drive.permissions.create({
+        fileId,
+        sendNotificationEmail: sendNotification,
+        requestBody: { type: 'user', role, emailAddress: shareWithEmail }
+    });
+    return `File ${fileId} shared with ${shareWithEmail} as ${role}.`;
+}
+
+async function driveMoveFile(email: string, fileId: string, newParentFolderId: string) {
+    const { client, isReadonly } = await getAuthClient(email);
+    if (isReadonly) throw new Error(`Cannot move files from ${email}: Account is configured in Read-Only mode.`);
+    const drive = google.drive({ version: 'v3', auth: client });
+
+    // Get current parents
+    const file = await drive.files.get({ fileId, fields: 'parents' });
+    const previousParents = (file.data.parents || []).join(',');
+
+    await drive.files.update({
+        fileId,
+        addParents: newParentFolderId,
+        removeParents: previousParents,
+        fields: 'id,parents'
+    });
+    return `File ${fileId} moved to folder ${newParentFolderId}.`;
+}
+
+
 // --- Server Handlers ---
 
 server.setRequestHandler(ListToolsRequestSchema, async () => {
@@ -1289,6 +1815,75 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 }
                 result = await sendDraft(args.email, args.draftId);
                 break;
+
+            // Calendar cases
+            case "calendar_list_calendars":
+                if (!args || typeof args.email !== 'string') throw new Error("Missing or invalid arguments for calendar_list_calendars.");
+                result = await calendarListCalendars(args.email);
+                break;
+            case "calendar_list_events":
+                if (!args || typeof args.email !== 'string' || typeof args.calendarId !== 'string') throw new Error("Missing or invalid arguments for calendar_list_events.");
+                result = await calendarListEvents(args.email, args.calendarId, typeof args.maxResults === 'number' ? args.maxResults : 10, typeof args.timeMin === 'string' ? args.timeMin : undefined, typeof args.timeMax === 'string' ? args.timeMax : undefined, typeof args.query === 'string' ? args.query : undefined);
+                break;
+            case "calendar_get_event":
+                if (!args || typeof args.email !== 'string' || typeof args.calendarId !== 'string' || typeof args.eventId !== 'string') throw new Error("Missing or invalid arguments for calendar_get_event.");
+                result = await calendarGetEvent(args.email, args.calendarId, args.eventId);
+                break;
+            case "calendar_create_event":
+                if (!args || typeof args.email !== 'string' || typeof args.calendarId !== 'string' || typeof args.title !== 'string' || typeof args.startDateTime !== 'string' || typeof args.endDateTime !== 'string') throw new Error("Missing or invalid arguments for calendar_create_event.");
+                result = await calendarCreateEvent(args.email, args.calendarId, args.title, args.startDateTime, args.endDateTime, typeof args.description === 'string' ? args.description : undefined, typeof args.location === 'string' ? args.location : undefined, typeof args.attendees === 'string' ? args.attendees : undefined, typeof args.isAllDay === 'boolean' ? args.isAllDay : false, typeof args.timeZone === 'string' ? args.timeZone : undefined);
+                break;
+            case "calendar_update_event":
+                if (!args || typeof args.email !== 'string' || typeof args.calendarId !== 'string' || typeof args.eventId !== 'string') throw new Error("Missing or invalid arguments for calendar_update_event.");
+                result = await calendarUpdateEvent(args.email, args.calendarId, args.eventId, typeof args.title === 'string' ? args.title : undefined, typeof args.startDateTime === 'string' ? args.startDateTime : undefined, typeof args.endDateTime === 'string' ? args.endDateTime : undefined, typeof args.description === 'string' ? args.description : undefined, typeof args.location === 'string' ? args.location : undefined, typeof args.attendees === 'string' ? args.attendees : undefined, typeof args.timeZone === 'string' ? args.timeZone : undefined);
+                break;
+            case "calendar_delete_event":
+                if (!args || typeof args.email !== 'string' || typeof args.calendarId !== 'string' || typeof args.eventId !== 'string') throw new Error("Missing or invalid arguments for calendar_delete_event.");
+                result = await calendarDeleteEvent(args.email, args.calendarId, args.eventId);
+                break;
+            case "calendar_quick_add":
+                if (!args || typeof args.email !== 'string' || typeof args.calendarId !== 'string' || typeof args.text !== 'string') throw new Error("Missing or invalid arguments for calendar_quick_add.");
+                result = await calendarQuickAdd(args.email, args.calendarId, args.text);
+                break;
+
+            // Drive cases
+            case "drive_list_files":
+                if (!args || typeof args.email !== 'string') throw new Error("Missing or invalid arguments for drive_list_files.");
+                result = await driveListFiles(args.email, typeof args.folderId === 'string' ? args.folderId : undefined, typeof args.maxResults === 'number' ? args.maxResults : 20);
+                break;
+            case "drive_search_files":
+                if (!args || typeof args.email !== 'string' || typeof args.query !== 'string') throw new Error("Missing or invalid arguments for drive_search_files.");
+                result = await driveSearchFiles(args.email, args.query, typeof args.maxResults === 'number' ? args.maxResults : 20);
+                break;
+            case "drive_get_file":
+                if (!args || typeof args.email !== 'string' || typeof args.fileId !== 'string') throw new Error("Missing or invalid arguments for drive_get_file.");
+                result = await driveGetFile(args.email, args.fileId);
+                break;
+            case "drive_read_file":
+                if (!args || typeof args.email !== 'string' || typeof args.fileId !== 'string') throw new Error("Missing or invalid arguments for drive_read_file.");
+                result = await driveReadFile(args.email, args.fileId);
+                break;
+            case "drive_upload_file":
+                if (!args || typeof args.email !== 'string' || typeof args.filename !== 'string' || typeof args.mimeType !== 'string' || typeof args.data !== 'string') throw new Error("Missing or invalid arguments for drive_upload_file.");
+                result = await driveUploadFile(args.email, args.filename, args.mimeType, args.data, typeof args.folderId === 'string' ? args.folderId : undefined);
+                break;
+            case "drive_create_folder":
+                if (!args || typeof args.email !== 'string' || typeof args.name !== 'string') throw new Error("Missing or invalid arguments for drive_create_folder.");
+                result = await driveCreateFolder(args.email, args.name, typeof args.parentFolderId === 'string' ? args.parentFolderId : undefined);
+                break;
+            case "drive_delete_file":
+                if (!args || typeof args.email !== 'string' || typeof args.fileId !== 'string') throw new Error("Missing or invalid arguments for drive_delete_file.");
+                result = await driveDeleteFile(args.email, args.fileId);
+                break;
+            case "drive_share_file":
+                if (!args || typeof args.email !== 'string' || typeof args.fileId !== 'string' || typeof args.shareWithEmail !== 'string') throw new Error("Missing or invalid arguments for drive_share_file.");
+                result = await driveShareFile(args.email, args.fileId, args.shareWithEmail, typeof args.role === 'string' ? args.role : 'reader', typeof args.sendNotification === 'boolean' ? args.sendNotification : true);
+                break;
+            case "drive_move_file":
+                if (!args || typeof args.email !== 'string' || typeof args.fileId !== 'string' || typeof args.newParentFolderId !== 'string') throw new Error("Missing or invalid arguments for drive_move_file.");
+                result = await driveMoveFile(args.email, args.fileId, args.newParentFolderId);
+                break;
+
             default:
                 throw new Error(`Unknown tool: ${name}`);
         }
