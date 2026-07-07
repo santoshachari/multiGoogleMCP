@@ -57,11 +57,15 @@ const CHAT_SCOPES: Record<ServicePermission, string[]> = {
     full: [
         'https://www.googleapis.com/auth/chat.messages',
         'https://www.googleapis.com/auth/chat.messages.reactions',
-        'https://www.googleapis.com/auth/chat.spaces.readonly'
+        'https://www.googleapis.com/auth/chat.spaces.readonly',
+        // Needed for space/membership management (chat_create_space, chat_add_member, chat_remove_member).
+        'https://www.googleapis.com/auth/chat.spaces.create',
+        'https://www.googleapis.com/auth/chat.memberships'
     ],
     readonly: [
         'https://www.googleapis.com/auth/chat.messages.readonly',
-        'https://www.googleapis.com/auth/chat.spaces.readonly'
+        'https://www.googleapis.com/auth/chat.spaces.readonly',
+        'https://www.googleapis.com/auth/chat.memberships.readonly'
     ]
 };
 

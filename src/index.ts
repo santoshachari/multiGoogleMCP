@@ -351,6 +351,164 @@ const TOOLS: Tool[] = [
         }
     },
     {
+        name: "chat_get_message",
+        description: "Get the full content of a single Google Chat message by its resource name.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The authenticated Google account to use." },
+                messageName: { type: "string", description: "The message resource name (e.g. 'spaces/XXXXXX/messages/YYYYYY'), from chat_list_messages name field." }
+            },
+            required: ["email", "messageName"]
+        }
+    },
+    {
+        name: "chat_delete_message",
+        description: "Delete a Google Chat message you sent.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The authenticated Google account that sent the message." },
+                messageName: { type: "string", description: "The message resource name to delete (e.g. 'spaces/XXXXXX/messages/YYYYYY')." }
+            },
+            required: ["email", "messageName"]
+        }
+    },
+    {
+        name: "chat_update_message",
+        description: "Edit the text of a Google Chat message you sent.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The authenticated Google account that sent the message." },
+                messageName: { type: "string", description: "The message resource name to edit (e.g. 'spaces/XXXXXX/messages/YYYYYY')." },
+                text: { type: "string", description: "The new text content for the message." }
+            },
+            required: ["email", "messageName", "text"]
+        }
+    },
+    {
+        name: "chat_list_reactions",
+        description: "List reactions on a Google Chat message.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The authenticated Google account to use." },
+                messageName: { type: "string", description: "The message resource name (e.g. 'spaces/XXXXXX/messages/YYYYYY'), from chat_list_messages name field." },
+                maxResults: { type: "number", description: "Maximum number of reactions to return (default: 25)." },
+                pageToken: { type: "string", description: "Pagination token from a previous call's nextPageToken, to fetch the next page of results." }
+            },
+            required: ["email", "messageName"]
+        }
+    },
+    {
+        name: "chat_remove_reaction",
+        description: "Remove a reaction from a Google Chat message. Use chat_list_reactions to get the reaction's resource name.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The authenticated Google account that created the reaction." },
+                reactionName: { type: "string", description: "The reaction resource name to remove (e.g. 'spaces/XXXXXX/messages/YYYYYY/reactions/ZZZZZZ'), from chat_list_reactions name field." }
+            },
+            required: ["email", "reactionName"]
+        }
+    },
+    {
+        name: "chat_get_attachment",
+        description: "Download an attachment from a Google Chat message. Use chat_list_messages or chat_get_message first to get the resourceName from the attachments list.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The authenticated Google account to use." },
+                resourceName: { type: "string", description: "The attachment data resourceName from a message's attachments list." },
+                filename: { type: "string", description: "The filename of the attachment (from the attachments list, optional but helpful)." }
+            },
+            required: ["email", "resourceName"]
+        }
+    },
+    {
+        name: "chat_list_members",
+        description: "List the members of a Google Chat space.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The authenticated Google account to use." },
+                spaceName: { type: "string", description: "The space resource name (e.g. 'spaces/XXXXXX'). Get this from chat_list_spaces." },
+                maxResults: { type: "number", description: "Maximum number of members to return (default: 50)." },
+                pageToken: { type: "string", description: "Pagination token from a previous call's nextPageToken, to fetch the next page of results." }
+            },
+            required: ["email", "spaceName"]
+        }
+    },
+    {
+        name: "chat_get_space",
+        description: "Get details about a single Google Chat space.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The authenticated Google account to use." },
+                spaceName: { type: "string", description: "The space resource name (e.g. 'spaces/XXXXXX'). Get this from chat_list_spaces." }
+            },
+            required: ["email", "spaceName"]
+        }
+    },
+    {
+        name: "chat_create_space",
+        description: "Create a new named Google Chat space (room), optionally inviting initial members.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The authenticated Google account to create the space as." },
+                displayName: { type: "string", description: "Display name for the new space." },
+                memberEmails: { type: "string", description: "Comma-separated list of email addresses to invite as initial members (optional)." }
+            },
+            required: ["email", "displayName"]
+        }
+    },
+    {
+        name: "chat_add_member",
+        description: "Add a member to a Google Chat space.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The authenticated Google account performing the action." },
+                spaceName: { type: "string", description: "The space resource name (e.g. 'spaces/XXXXXX'). Get this from chat_list_spaces." },
+                memberEmail: { type: "string", description: "Email address of the person to add." }
+            },
+            required: ["email", "spaceName", "memberEmail"]
+        }
+    },
+    {
+        name: "chat_remove_member",
+        description: "Remove a member from a Google Chat space.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The authenticated Google account performing the action." },
+                spaceName: { type: "string", description: "The space resource name (e.g. 'spaces/XXXXXX'). Get this from chat_list_spaces." },
+                memberEmail: { type: "string", description: "Email address of the member to remove." }
+            },
+            required: ["email", "spaceName", "memberEmail"]
+        }
+    },
+    {
+        name: "chat_upload_attachment",
+        description: "Upload a file and send it as an attachment to a Google Chat space, with optional accompanying text.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The authenticated Google account to send from." },
+                spaceName: { type: "string", description: "The space resource name (e.g. 'spaces/XXXXXX'). Get this from chat_list_spaces." },
+                filename: { type: "string", description: "The name for the file as it will appear in the message." },
+                mimeType: { type: "string", description: "MIME type of the file (e.g. 'application/pdf', 'image/png')." },
+                data: { type: "string", description: "Base64-encoded file content." },
+                text: { type: "string", description: "Optional message text to send alongside the attachment." },
+                threadName: { type: "string", description: "Thread resource name to reply within (optional), from chat_list_messages threadName field." }
+            },
+            required: ["email", "spaceName", "filename", "mimeType", "data"]
+        }
+    },
+    {
         name: "gmail_get_attachment",
         description: "Download an attachment from a Gmail message. Use gmail_read first to get the attachmentId from the attachments list.",
         inputSchema: {
@@ -1426,6 +1584,11 @@ async function chatListMessages(email: string, spaceName: string, maxResults: nu
         sender: m.sender?.displayName || m.sender?.name || 'Unknown',
         text: m.text || m.formattedText || '',
         createTime: m.createTime,
+        attachments: (m.attachment || []).map(a => ({
+            resourceName: a.attachmentDataRef?.resourceName,
+            contentName: a.contentName,
+            contentType: a.contentType
+        }))
     }));
 
     return JSON.stringify({ messages: result, nextPageToken: response.data.nextPageToken || null }, null, 2);
@@ -1461,6 +1624,182 @@ async function chatAddReaction(email: string, messageName: string, emoji: string
     });
 
     return `Reaction '${emoji}' added to message ${messageName}.`;
+}
+
+async function chatGetMessage(email: string, messageName: string) {
+    const { client } = await getAuthClient(email);
+    const chat = google.chat({ version: 'v1', auth: client });
+    const response = await chat.spaces.messages.get({ name: messageName });
+    const m = response.data;
+    return JSON.stringify({
+        name: m.name,
+        threadName: m.thread?.name,
+        sender: m.sender?.displayName || m.sender?.name || 'Unknown',
+        text: m.text || m.formattedText || '',
+        createTime: m.createTime,
+        lastUpdateTime: m.lastUpdateTime,
+        attachments: (m.attachment || []).map(a => ({
+            resourceName: a.attachmentDataRef?.resourceName,
+            contentName: a.contentName,
+            contentType: a.contentType
+        }))
+    }, null, 2);
+}
+
+async function chatDeleteMessage(email: string, messageName: string) {
+    const { client, permissions } = await getAuthClient(email);
+    assertChatCanSend(permissions, email);
+    const chat = google.chat({ version: 'v1', auth: client });
+    await chat.spaces.messages.delete({ name: messageName });
+    return `Message ${messageName} deleted.`;
+}
+
+async function chatUpdateMessage(email: string, messageName: string, text: string) {
+    const { client, permissions } = await getAuthClient(email);
+    assertChatCanSend(permissions, email);
+    const chat = google.chat({ version: 'v1', auth: client });
+    const response = await chat.spaces.messages.patch({
+        name: messageName,
+        updateMask: 'text',
+        requestBody: { text }
+    });
+    return `Message ${response.data.name} updated.`;
+}
+
+async function chatListReactions(email: string, messageName: string, maxResults: number = 25, pageToken?: string) {
+    const { client } = await getAuthClient(email);
+    const chat = google.chat({ version: 'v1', auth: client });
+    const response = await chat.spaces.messages.reactions.list({
+        parent: messageName,
+        pageSize: maxResults,
+        pageToken
+    });
+    const reactions = (response.data.reactions || []).map(r => ({
+        name: r.name,
+        emoji: r.emoji?.unicode || r.emoji?.customEmoji?.uid,
+        user: r.user?.displayName || r.user?.name
+    }));
+    return JSON.stringify({ reactions, nextPageToken: response.data.nextPageToken || null }, null, 2);
+}
+
+async function chatRemoveReaction(email: string, reactionName: string) {
+    const { client, permissions } = await getAuthClient(email);
+    assertChatCanSend(permissions, email);
+    const chat = google.chat({ version: 'v1', auth: client });
+    await chat.spaces.messages.reactions.delete({ name: reactionName });
+    return `Reaction ${reactionName} removed.`;
+}
+
+async function chatGetAttachment(email: string, resourceName: string, filename?: string) {
+    const { client } = await getAuthClient(email);
+    const chat = google.chat({ version: 'v1', auth: client });
+    const response = await chat.media.download({ resourceName }, { responseType: 'arraybuffer' });
+    const buffer = Buffer.from(response.data as ArrayBuffer);
+    return JSON.stringify({
+        filename: filename || 'attachment',
+        size: buffer.length,
+        data: buffer.toString('base64')
+    });
+}
+
+async function chatListMembers(email: string, spaceName: string, maxResults: number = 50, pageToken?: string) {
+    const { client } = await getAuthClient(email);
+    const chat = google.chat({ version: 'v1', auth: client });
+    const response = await chat.spaces.members.list({
+        parent: spaceName,
+        pageSize: maxResults,
+        pageToken
+    });
+    const members = (response.data.memberships || []).map(m => ({
+        name: m.name,
+        member: m.member?.displayName || m.member?.name,
+        role: m.role,
+        state: m.state
+    }));
+    return JSON.stringify({ members, nextPageToken: response.data.nextPageToken || null }, null, 2);
+}
+
+async function chatGetSpace(email: string, spaceName: string) {
+    const { client } = await getAuthClient(email);
+    const chat = google.chat({ version: 'v1', auth: client });
+    const response = await chat.spaces.get({ name: spaceName });
+    const s = response.data;
+    return JSON.stringify({
+        name: s.name,
+        displayName: s.displayName || '(Direct Message)',
+        type: s.spaceType,
+        threadedMessages: s.spaceThreadingState,
+    }, null, 2);
+}
+
+async function chatCreateSpace(email: string, displayName: string, memberEmails?: string) {
+    const { client, permissions } = await getAuthClient(email);
+    assertChatCanSend(permissions, email);
+    const chat = google.chat({ version: 'v1', auth: client });
+
+    const memberships = memberEmails
+        ? memberEmails.split(',').map(e => ({ member: { name: `users/${e.trim()}`, type: 'HUMAN' } }))
+        : undefined;
+
+    const response = await chat.spaces.setup({
+        requestBody: {
+            space: { spaceType: 'SPACE', displayName },
+            memberships
+        }
+    });
+    return `Space created. Name: ${response.data.name}, Display Name: ${response.data.displayName}`;
+}
+
+async function chatAddMember(email: string, spaceName: string, memberEmail: string) {
+    const { client, permissions } = await getAuthClient(email);
+    assertChatCanSend(permissions, email);
+    const chat = google.chat({ version: 'v1', auth: client });
+    const response = await chat.spaces.members.create({
+        parent: spaceName,
+        requestBody: { member: { name: `users/${memberEmail}`, type: 'HUMAN' } }
+    });
+    return `${memberEmail} added to ${spaceName}. Membership: ${response.data.name}`;
+}
+
+async function chatRemoveMember(email: string, spaceName: string, memberEmail: string) {
+    const { client, permissions } = await getAuthClient(email);
+    assertChatCanSend(permissions, email);
+    const chat = google.chat({ version: 'v1', auth: client });
+    await chat.spaces.members.delete({ name: `${spaceName}/members/${memberEmail}` });
+    return `${memberEmail} removed from ${spaceName}.`;
+}
+
+async function chatUploadAttachment(email: string, spaceName: string, filename: string, mimeType: string, data: string, text?: string, threadName?: string) {
+    const { client, permissions } = await getAuthClient(email);
+    assertChatCanSend(permissions, email);
+    const chat = google.chat({ version: 'v1', auth: client });
+
+    const buffer = Buffer.from(data, 'base64');
+    const { Readable } = await import('stream');
+    const stream = Readable.from(buffer);
+
+    const uploadResponse = await chat.media.upload({
+        parent: spaceName,
+        requestBody: { filename },
+        media: { mimeType, body: stream }
+    });
+
+    const attachmentUploadToken = uploadResponse.data.attachmentDataRef?.attachmentUploadToken;
+    if (!attachmentUploadToken) {
+        throw new Error('Attachment upload succeeded but no upload token was returned.');
+    }
+
+    const response = await chat.spaces.messages.create({
+        parent: spaceName,
+        messageReplyOption: threadName ? 'REPLY_MESSAGE_OR_FAIL' : undefined,
+        requestBody: {
+            text,
+            thread: threadName ? { name: threadName } : undefined,
+            attachment: [{ attachmentDataRef: { attachmentUploadToken } }]
+        }
+    });
+
+    return `File uploaded and sent. Message name: ${response.data.name}`;
 }
 
 
@@ -1939,6 +2278,78 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                     throw new Error("Missing or invalid arguments for chat_add_reaction.");
                 }
                 result = await chatAddReaction(args.email, args.messageName, args.emoji);
+                break;
+            case "chat_get_message":
+                if (!args || typeof args.email !== 'string' || typeof args.messageName !== 'string') {
+                    throw new Error("Missing or invalid arguments for chat_get_message.");
+                }
+                result = await chatGetMessage(args.email, args.messageName);
+                break;
+            case "chat_delete_message":
+                if (!args || typeof args.email !== 'string' || typeof args.messageName !== 'string') {
+                    throw new Error("Missing or invalid arguments for chat_delete_message.");
+                }
+                result = await chatDeleteMessage(args.email, args.messageName);
+                break;
+            case "chat_update_message":
+                if (!args || typeof args.email !== 'string' || typeof args.messageName !== 'string' || typeof args.text !== 'string') {
+                    throw new Error("Missing or invalid arguments for chat_update_message.");
+                }
+                result = await chatUpdateMessage(args.email, args.messageName, args.text);
+                break;
+            case "chat_list_reactions":
+                if (!args || typeof args.email !== 'string' || typeof args.messageName !== 'string') {
+                    throw new Error("Missing or invalid arguments for chat_list_reactions.");
+                }
+                result = await chatListReactions(args.email, args.messageName, typeof args.maxResults === 'number' ? args.maxResults : 25, typeof args.pageToken === 'string' ? args.pageToken : undefined);
+                break;
+            case "chat_remove_reaction":
+                if (!args || typeof args.email !== 'string' || typeof args.reactionName !== 'string') {
+                    throw new Error("Missing or invalid arguments for chat_remove_reaction.");
+                }
+                result = await chatRemoveReaction(args.email, args.reactionName);
+                break;
+            case "chat_get_attachment":
+                if (!args || typeof args.email !== 'string' || typeof args.resourceName !== 'string') {
+                    throw new Error("Missing or invalid arguments for chat_get_attachment.");
+                }
+                result = await chatGetAttachment(args.email, args.resourceName, typeof args.filename === 'string' ? args.filename : undefined);
+                break;
+            case "chat_list_members":
+                if (!args || typeof args.email !== 'string' || typeof args.spaceName !== 'string') {
+                    throw new Error("Missing or invalid arguments for chat_list_members.");
+                }
+                result = await chatListMembers(args.email, args.spaceName, typeof args.maxResults === 'number' ? args.maxResults : 50, typeof args.pageToken === 'string' ? args.pageToken : undefined);
+                break;
+            case "chat_get_space":
+                if (!args || typeof args.email !== 'string' || typeof args.spaceName !== 'string') {
+                    throw new Error("Missing or invalid arguments for chat_get_space.");
+                }
+                result = await chatGetSpace(args.email, args.spaceName);
+                break;
+            case "chat_create_space":
+                if (!args || typeof args.email !== 'string' || typeof args.displayName !== 'string') {
+                    throw new Error("Missing or invalid arguments for chat_create_space.");
+                }
+                result = await chatCreateSpace(args.email, args.displayName, typeof args.memberEmails === 'string' ? args.memberEmails : undefined);
+                break;
+            case "chat_add_member":
+                if (!args || typeof args.email !== 'string' || typeof args.spaceName !== 'string' || typeof args.memberEmail !== 'string') {
+                    throw new Error("Missing or invalid arguments for chat_add_member.");
+                }
+                result = await chatAddMember(args.email, args.spaceName, args.memberEmail);
+                break;
+            case "chat_remove_member":
+                if (!args || typeof args.email !== 'string' || typeof args.spaceName !== 'string' || typeof args.memberEmail !== 'string') {
+                    throw new Error("Missing or invalid arguments for chat_remove_member.");
+                }
+                result = await chatRemoveMember(args.email, args.spaceName, args.memberEmail);
+                break;
+            case "chat_upload_attachment":
+                if (!args || typeof args.email !== 'string' || typeof args.spaceName !== 'string' || typeof args.filename !== 'string' || typeof args.mimeType !== 'string' || typeof args.data !== 'string') {
+                    throw new Error("Missing or invalid arguments for chat_upload_attachment.");
+                }
+                result = await chatUploadAttachment(args.email, args.spaceName, args.filename, args.mimeType, args.data, typeof args.text === 'string' ? args.text : undefined, typeof args.threadName === 'string' ? args.threadName : undefined);
                 break;
             case "gmail_get_attachment":
                 if (!args || typeof args.email !== 'string' || typeof args.messageId !== 'string' || typeof args.attachmentId !== 'string') {
