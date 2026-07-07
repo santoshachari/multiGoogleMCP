@@ -1542,6 +1542,52 @@ async function sendDraft(email: string, draftId: string) {
 
 // --- Google Chat Implementations ---
 
+interface ResolvedChatUser {
+    name?: string;
+    email?: string;
+}
+
+// Chat returns sender/member/reaction identities as opaque "users/{id}" resource names when
+// authenticating as a user (Google withholds displayName in that case). "{id}" is the same
+// numeric ID as the People API's "people/{id}", so we batch-resolve them into names/emails.
+// Best-effort: external or unresolvable users are simply left out of the returned map.
+async function resolveChatUsers(client: any, resourceNames: (string | null | undefined)[]): Promise<Map<string, ResolvedChatUser>> {
+    const unique = [...new Set(resourceNames.filter((n): n is string => !!n && n.startsWith('users/')))];
+    const map = new Map<string, ResolvedChatUser>();
+    if (unique.length === 0) return map;
+
+    const people = google.people({ version: 'v1', auth: client });
+
+    for (let i = 0; i < unique.length; i += 200) {
+        const batch = unique.slice(i, i + 200);
+        try {
+            const response = await people.people.getBatchGet({
+                resourceNames: batch.map(u => `people/${u.slice('users/'.length)}`),
+                personFields: 'names,emailAddresses'
+            });
+            for (const r of response.data.responses || []) {
+                if (!r.person || !r.requestedResourceName) continue;
+                const chatUser = `users/${r.requestedResourceName.slice('people/'.length)}`;
+                map.set(chatUser, {
+                    name: r.person.names?.[0]?.displayName || undefined,
+                    email: r.person.emailAddresses?.[0]?.value || undefined
+                });
+            }
+        } catch {
+            // Ignore lookup failures (e.g. external users) — callers fall back to the opaque ID.
+        }
+    }
+    return map;
+}
+
+function describeChatUser(resourceName: string | null | undefined, displayName: string | null | undefined, resolved: Map<string, ResolvedChatUser>): { name: string; email?: string } {
+    const info = resourceName ? resolved.get(resourceName) : undefined;
+    return {
+        name: info?.name || displayName || resourceName || 'Unknown',
+        email: info?.email
+    };
+}
+
 async function chatListSpaces(email: string, maxResults: number = 25, pageToken?: string) {
     const { client } = await getAuthClient(email);
     const chat = google.chat({ version: 'v1', auth: client });
@@ -1578,10 +1624,12 @@ async function chatListMessages(email: string, spaceName: string, maxResults: nu
         return "No messages found in this space.";
     }
 
+    const resolved = await resolveChatUsers(client, messages.map(m => m.sender?.name));
+
     const result = messages.map(m => ({
         name: m.name,
         threadName: m.thread?.name,
-        sender: m.sender?.displayName || m.sender?.name || 'Unknown',
+        sender: describeChatUser(m.sender?.name, m.sender?.displayName, resolved),
         text: m.text || m.formattedText || '',
         createTime: m.createTime,
         attachments: (m.attachment || []).map(a => ({
@@ -1631,10 +1679,11 @@ async function chatGetMessage(email: string, messageName: string) {
     const chat = google.chat({ version: 'v1', auth: client });
     const response = await chat.spaces.messages.get({ name: messageName });
     const m = response.data;
+    const resolved = await resolveChatUsers(client, [m.sender?.name]);
     return JSON.stringify({
         name: m.name,
         threadName: m.thread?.name,
-        sender: m.sender?.displayName || m.sender?.name || 'Unknown',
+        sender: describeChatUser(m.sender?.name, m.sender?.displayName, resolved),
         text: m.text || m.formattedText || '',
         createTime: m.createTime,
         lastUpdateTime: m.lastUpdateTime,
@@ -1674,10 +1723,12 @@ async function chatListReactions(email: string, messageName: string, maxResults:
         pageSize: maxResults,
         pageToken
     });
-    const reactions = (response.data.reactions || []).map(r => ({
+    const reactionList = response.data.reactions || [];
+    const resolved = await resolveChatUsers(client, reactionList.map(r => r.user?.name));
+    const reactions = reactionList.map(r => ({
         name: r.name,
         emoji: r.emoji?.unicode || r.emoji?.customEmoji?.uid,
-        user: r.user?.displayName || r.user?.name
+        user: describeChatUser(r.user?.name, r.user?.displayName, resolved)
     }));
     return JSON.stringify({ reactions, nextPageToken: response.data.nextPageToken || null }, null, 2);
 }
@@ -1710,9 +1761,11 @@ async function chatListMembers(email: string, spaceName: string, maxResults: num
         pageSize: maxResults,
         pageToken
     });
-    const members = (response.data.memberships || []).map(m => ({
+    const memberships = response.data.memberships || [];
+    const resolved = await resolveChatUsers(client, memberships.map(m => m.member?.name));
+    const members = memberships.map(m => ({
         name: m.name,
-        member: m.member?.displayName || m.member?.name,
+        member: describeChatUser(m.member?.name, m.member?.displayName, resolved),
         role: m.role,
         state: m.state
     }));

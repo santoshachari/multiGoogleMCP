@@ -8,7 +8,7 @@ Since this runs locally, you need your own Google Cloud OAuth credentials:
 
 1. Go to the [Google Cloud Console](https://console.cloud.google.com/).
 2. Create a new project (e.g., "Multi-Gmail MCP").
-3. Go to **APIs & Services > Library** and enable the **Gmail API**, **Google Calendar API**, **Google Drive API**, and **Google Meet API** (needed for adding Meet links / Gemini notes to events).
+3. Go to **APIs & Services > Library** and enable the **Gmail API**, **Google Calendar API**, **Google Drive API**, **Google Meet API** (needed for adding Meet links / Gemini notes to events), **Google Chat API**, and **People API** (needed to resolve Chat participant names/emails).
 4. Go to **APIs & Services > OAuth consent screen**:
    - Choose **External** user type.
    - Fill in the required fields (App name, User support email, Developer contact email).
@@ -251,6 +251,8 @@ Using these requires the Google Meet API to be enabled on your Cloud project (se
 > **Note:** The Chat API does not support arbitrary DM creation via user-authenticated OAuth (it requires resolving Chat user IDs through the People/Admin API). `chat_list_spaces` already lists existing DM spaces you can send to. `chat_create_space` creates *named* spaces (rooms), not 1:1 DMs.
 >
 > `chat_get_attachment` metadata (`resourceName`) comes from the `attachments` field in `chat_list_messages`/`chat_get_message` output — the dedicated attachment-metadata endpoint requires app (bot) authentication and isn't usable here.
+>
+> **Resolving names:** When authenticating as a user (as this MCP does), the Chat API only returns an opaque `users/{id}` for message senders, reaction users, and space members — not their name or email. `sender`/`user`/`member` fields in the tools above are therefore objects (`{ name, email }`), resolved via a People API lookup on the same numeric ID. Resolution is best-effort: external users or accounts without a visible profile fall back to `{ name: "users/{id}" }` with no email. This requires the **People API** to be enabled (see step 3) and the `directory.readonly` scope, bundled into both Chat permission tiers — re-run `npm run auth` for accounts authenticated before this was added.
 
 ### Pagination
 
