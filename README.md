@@ -8,7 +8,7 @@ Since this runs locally, you need your own Google Cloud OAuth credentials:
 
 1. Go to the [Google Cloud Console](https://console.cloud.google.com/).
 2. Create a new project (e.g., "Multi-Gmail MCP").
-3. Go to **APIs & Services > Library**, search for **Gmail API**, and enable it.
+3. Go to **APIs & Services > Library** and enable the **Gmail API**, **Google Calendar API**, and **Google Drive API**.
 4. Go to **APIs & Services > OAuth consent screen**:
    - Choose **External** user type.
    - Fill in the required fields (App name, User support email, Developer contact email).
@@ -47,6 +47,8 @@ npm run auth -- --draftonly
 This opens a browser window for Google OAuth. Run the command once per account — credentials are saved locally in `tokens.json`.
 
 > **Note:** Your Google Cloud project will be in "Testing" status, so Google shows a "Google hasn't verified this app" warning. Click **Advanced** then **Go to [Your App Name] (unsafe)** — this is expected since you built the app yourself.
+
+> **Re-authenticating existing accounts:** If you authenticated an account before Calendar/Drive support was added, re-run the `npm run auth` command for that account to grant the additional scopes. Google reuses the same consent flow, so no new credentials are needed.
 
 ## 4. Connecting to Claude Desktop
 
@@ -159,14 +161,61 @@ If you run into module resolution errors, set the `NODE_PATH` environment variab
 
 ## Available Tools
 
+### Gmail
+
 | Tool | Description |
 |---|---|
 | `gmail_list_accounts` | List all authenticated accounts |
 | `gmail_search` | Search emails using Gmail search operators |
 | `gmail_read` | Read the full content of an email by ID |
-| `gmail_draft` | Create a draft email |
-| `gmail_send` | Send an email |
+| `gmail_read_thread` | Read all messages in a thread/conversation |
+| `gmail_draft` | Create a draft email (supports cc, bcc, attachments) |
+| `gmail_send` | Send an email (supports cc, bcc, attachments) |
 | `gmail_reply` | Reply to an email within its thread (send or draft) |
+| `gmail_forward` | Forward an email to new recipients |
+| `gmail_get_attachment` | Download an attachment from a message |
+| `gmail_trash` | Move an email to trash |
+| `gmail_delete` | Permanently delete an email |
+| `gmail_mark_read` / `gmail_mark_unread` | Change an email's read state |
+| `gmail_star` / `gmail_unstar` | Star or unstar an email |
+| `gmail_list_labels` | List all labels/folders |
+| `gmail_apply_label` / `gmail_remove_label` | Apply or remove a label from an email |
+| `gmail_list_drafts` | List existing draft emails |
+| `gmail_send_draft` | Send a previously saved draft |
+
+### Google Calendar
+
+| Tool | Description |
+|---|---|
+| `calendar_list_calendars` | List all calendars in the account |
+| `calendar_list_events` | List upcoming events, with time range and search filters |
+| `calendar_get_event` | Get full details of a specific event |
+| `calendar_create_event` | Create an event (supports attendees, location, all-day) |
+| `calendar_update_event` | Update fields on an existing event |
+| `calendar_delete_event` | Delete an event |
+| `calendar_quick_add` | Create an event from natural language text |
+
+### Google Drive
+
+| Tool | Description |
+|---|---|
+| `drive_list_files` | List files/folders in a given folder (or root) |
+| `drive_search_files` | Search using Drive query syntax |
+| `drive_get_file` | Get metadata for a file or folder |
+| `drive_read_file` | Read text content (exports Google Docs/Sheets/Slides) |
+| `drive_upload_file` | Upload a base64-encoded file |
+| `drive_create_folder` | Create a new folder |
+| `drive_delete_file` | Move a file or folder to trash |
+| `drive_share_file` | Share a file/folder with another user |
+| `drive_move_file` | Move a file/folder to a different parent folder |
+
+### Google Chat
+
+| Tool | Description |
+|---|---|
+| `chat_list_spaces` | List Chat spaces/rooms the account belongs to |
+| `chat_list_messages` | List recent messages in a space |
+| `chat_send_message` | Send a message to a space |
 
 ### Content Type Support
 
