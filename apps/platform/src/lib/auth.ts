@@ -17,4 +17,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [Google],
   session: { strategy: "database" },
   pages: { signIn: "/" },
+  callbacks: {
+    // With the database session strategy, `user` is the DB row. Surface its id
+    // on the session so route handlers can attribute connected accounts.
+    session({ session, user }) {
+      if (session.user) session.user.id = user.id;
+      return session;
+    },
+  },
 });
