@@ -1,0 +1,21 @@
+{
+  "name": "@multigoogle/core",
+  "version": "0.1.0",
+  "description": "Transport-agnostic Google tool core (Gmail/Calendar/Drive/Chat) with injectable auth.",
+  "license": "ISC",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc",
+    "prepare": "tsc"
+  },
+  "dependencies": {
+    "googleapis": "^173.0.0",
+    "marked": "^17.0.3"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "@types/node": "^20"
+  }
+}
