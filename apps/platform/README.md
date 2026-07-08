@@ -4,10 +4,38 @@ Multi-tenant web app that wraps the `multiGoogleMCP` tool core: users sign in,
 connect Google accounts, and hand out scoped agents + API keys to their AI
 clients. Built with Next.js (App Router), Prisma + Postgres, and Auth.js.
 
-> **Status: Phase 0 (foundation).** Sign in with Google and land on an empty
-> dashboard. Connecting Google accounts (Phase 1), the tool-core refactor
-> (Phase 2), agents/keys (Phase 3), and the remote MCP endpoint (Phase 4) are
-> not built yet. See the architecture plan for the full roadmap.
+> **Status: functional end-to-end.** Sign in, connect Google accounts
+> (encrypted tokens), create scoped agents, mint API keys, and connect an MCP
+> client to the agent's endpoint — all 53 Gmail/Calendar/Drive/Chat tools are
+> served, scoped per agent.
+
+## Connecting an MCP client
+
+Each agent is served at a single endpoint, authenticated by one of its API keys:
+
+```
+POST http://localhost:3000/api/mcp
+Authorization: Bearer mcp_<your-key>
+```
+
+The client sees only the tools for services the agent has been granted, and
+every call is scoped to the agent's granted accounts at the granted permission.
+Pass one of the agent's accessible account addresses as the `email` argument to
+each tool (the `initialize` response lists them).
+
+Example Claude Desktop config (`claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "my-google-agent": {
+      "type": "http",
+      "url": "http://localhost:3000/api/mcp",
+      "headers": { "Authorization": "Bearer mcp_<your-key>" }
+    }
+  }
+}
+```
 
 ## One-time setup
 

@@ -50,3 +50,32 @@ export async function runToolForUser(
 ): Promise<string> {
   return executeTool(resolverForUser(userId), name, args);
 }
+
+// What an agent may do with one connected account.
+export interface GrantEntry {
+  refreshTokenEnc: string;
+  permissions: AccountPermissions;
+}
+
+// Resolver for the MCP endpoint: an agent can ONLY reach the accounts it has
+// been granted, and only at the granted permission. Any other email is
+// rejected — this is what stops an agent from touching the owner's other
+// connected accounts.
+export function resolverForGrants(
+  grantsByEmail: Map<string, GrantEntry>,
+): AuthResolver {
+  return async (email: string) => {
+    const grant = grantsByEmail.get(email);
+    if (!grant) {
+      throw new Error(`This agent has no access to ${email}.`);
+    }
+    const client = new google.auth.OAuth2(
+      process.env.AUTH_GOOGLE_ID,
+      process.env.AUTH_GOOGLE_SECRET,
+    );
+    client.setCredentials({
+      refresh_token: decryptSecret(grant.refreshTokenEnc),
+    });
+    return { client, permissions: grant.permissions };
+  };
+}
