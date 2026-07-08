@@ -146,33 +146,22 @@ export default async function Dashboard({
           </ul>
         )}
 
-        <div className="mt-8 grid gap-4 sm:grid-cols-2">
-          <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
-            <div className="flex items-center justify-between">
+        <div className="mt-8">
+          <Link
+            href="/dashboard/agents"
+            className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-5 transition hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
+          >
+            <div>
               <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                Agents
+                Agents &amp; API keys
               </h3>
-              <span className="font-mono text-[10px] uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                Phase 3
-              </span>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                Create scoped endpoints and mint the keys your AI clients connect
+                with.
+              </p>
             </div>
-            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-              Scoped endpoints that reach only the accounts and tools you allow.
-            </p>
-          </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                API keys
-              </h3>
-              <span className="font-mono text-[10px] uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                Phase 3
-              </span>
-            </div>
-            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-              Bearer keys your AI clients use to connect to an agent.
-            </p>
-          </div>
+            <span className="text-slate-400 dark:text-slate-600">→</span>
+          </Link>
         </div>
       </div>
     </main>
