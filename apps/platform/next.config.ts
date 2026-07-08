@@ -2,10 +2,10 @@ import type { NextConfig } from "next";
 import path from "node:path";
 
 const nextConfig: NextConfig = {
-  // This app is self-contained; pin the Turbopack root to this directory so
-  // Next doesn't infer the outer repo root from its lockfile.
+  // Monorepo root, so Turbopack can resolve the workspace package
+  // @multigoogle/core (symlinked at ../../packages/core).
   turbopack: {
-    root: path.join(__dirname),
+    root: path.join(__dirname, "..", ".."),
   },
 };
 
