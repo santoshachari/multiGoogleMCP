@@ -65,6 +65,45 @@ function resolver(permissions) {
     /Unknown or unimplemented/,
   );
 
+  // 5. Calendar/Drive/Chat guards fire when the service is read-only.
+  const readonlyAll = resolver({ gmail: "readonly", calendar: "readonly", drive: "readonly", chat: "readonly" });
+  await expectThrow(
+    "calendar_create_event denied when calendar=readonly",
+    () => executeTool(readonlyAll, "calendar_create_event", { email: "u@x.com", calendarId: "primary", title: "t", startDateTime: "2026-01-01T10:00:00Z", endDateTime: "2026-01-01T11:00:00Z" }),
+    /requires 'full'/,
+  );
+  await expectThrow(
+    "drive_upload_file denied when drive=readonly",
+    () => executeTool(readonlyAll, "drive_upload_file", { email: "u@x.com", filename: "f.txt", mimeType: "text/plain", data: "aGk=" }),
+    /requires 'full'/,
+  );
+  await expectThrow(
+    "chat_send_message denied when chat=readonly",
+    () => executeTool(readonlyAll, "chat_send_message", { email: "u@x.com", spaceName: "spaces/AAA", text: "hi" }),
+    /requires 'full'/,
+  );
+
+  // 6. All 53 tools are registered in the dispatcher (arg-validation reached,
+  //    not "unknown tool"). We call each with empty args and accept any error
+  //    except the unknown-tool one.
+  const { IMPLEMENTED_TOOLS } = require("../dist/index.js");
+  let unknown = 0;
+  for (const name of IMPLEMENTED_TOOLS) {
+    try {
+      await executeTool(r3, name, {});
+    } catch (e) {
+      if (/Unknown or unimplemented/.test(e.message)) {
+        console.error(`✗ ${name} is not wired into dispatch`);
+        unknown++;
+      }
+    }
+  }
+  if (unknown === 0) {
+    console.log(`✓ all ${IMPLEMENTED_TOOLS.length} implemented tools are wired into dispatch`);
+  } else {
+    failures += unknown;
+  }
+
   if (failures) {
     console.error(`\n${failures} check(s) failed.`);
     process.exit(1);
