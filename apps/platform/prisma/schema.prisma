@@ -1,10 +1,15 @@
 // Multi-tenant Google MCP platform — data model
 // Two groups of models:
 //   1. Auth.js login models (User, Account, Session, VerificationToken) — how a
-//      person signs INTO this platform. `Account` here is a login provider account.
+//      person signs INTO this platform. Login is email+password (Credentials
+//      provider, JWT session strategy) — see src/lib/auth.ts. Account/Session/
+//      VerificationToken are unused with Credentials+JWT; kept only in case a
+//      future login method needs them.
 //   2. Domain models (ConnectedAccount, Agent, AgentGrant, ApiKey, AuditLog) — the
 //      product itself. `ConnectedAccount` is a Google identity a user links so its
-//      Gmail/Calendar/Drive/Chat can be exposed through scoped agents.
+//      Gmail/Calendar/Drive/Chat can be exposed through scoped agents. This is a
+//      SEPARATE Google OAuth flow from platform login — connecting a Google
+//      account has nothing to do with how the user signed into the app.
 
 generator client {
   provider = "prisma-client-js"
@@ -22,7 +27,8 @@ datasource db {
 model User {
   id            String    @id @default(cuid())
   name          String?
-  email         String?   @unique
+  email         String    @unique
+  passwordHash  String // bcrypt hash; login credential for this app
   emailVerified DateTime?
   image         String?
   createdAt     DateTime  @default(now())

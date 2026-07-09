@@ -1,27 +1,55 @@
 import NextAuth from "next-auth";
-import Google from "next-auth/providers/google";
-import { PrismaAdapter } from "@auth/prisma-adapter";
+import Credentials from "next-auth/providers/credentials";
+import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 
-// Platform login only. This Google provider requests basic identity scopes
-// (openid, email, profile) purely to authenticate the person using the app.
+// Platform login: email + password only (no Google sign-in for the app
+// itself). This is unrelated to the "connect a Google account" flow
+// (src/app/api/connect/google/*), which is a separate OAuth pass requesting
+// Gmail/Calendar/Drive/Chat scopes and storing encrypted refresh tokens in
+// ConnectedAccount — a user can have zero, one, or many connected Google
+// accounts regardless of how they logged into the app.
 //
-// It is deliberately separate from the "connected accounts" flow (Phase 1),
-// which runs its own Google OAuth to request Gmail/Calendar/Drive/Chat scopes
-// and stores encrypted refresh tokens in ConnectedAccount.
-//
-// Auth.js v5 reads AUTH_SECRET, AUTH_GOOGLE_ID and AUTH_GOOGLE_SECRET from the
-// environment automatically.
+// The Credentials provider requires the JWT session strategy (no adapter):
+// there's no OAuth account for an adapter to persist/link, so the user id is
+// carried in the signed JWT instead of a Session table row.
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  adapter: PrismaAdapter(prisma),
-  providers: [Google],
-  session: { strategy: "database" },
+  providers: [
+    Credentials({
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
+      },
+      async authorize(credentials) {
+        const email = credentials?.email;
+        const password = credentials?.password;
+        if (typeof email !== "string" || typeof password !== "string") {
+          return null;
+        }
+
+        const user = await prisma.user.findUnique({
+          where: { email: email.toLowerCase().trim() },
+        });
+        if (!user) return null;
+
+        const valid = await bcrypt.compare(password, user.passwordHash);
+        if (!valid) return null;
+
+        return { id: user.id, email: user.email, name: user.name };
+      },
+    }),
+  ],
+  session: { strategy: "jwt" },
   pages: { signIn: "/" },
   callbacks: {
-    // With the database session strategy, `user` is the DB row. Surface its id
-    // on the session so route handlers can attribute connected accounts.
-    session({ session, user }) {
-      if (session.user) session.user.id = user.id;
+    jwt({ token, user }) {
+      if (user) token.id = user.id;
+      return token;
+    },
+    session({ session, token }) {
+      if (session.user && typeof token.id === "string") {
+        session.user.id = token.id;
+      }
       return session;
     },
   },

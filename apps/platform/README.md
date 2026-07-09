@@ -1,8 +1,14 @@
 # Google MCP Platform — web app
 
-Multi-tenant web app that wraps the `multiGoogleMCP` tool core: users sign in,
-connect Google accounts, and hand out scoped agents + API keys to their AI
-clients. Built with Next.js (App Router), Prisma + Postgres, and Auth.js.
+Multi-tenant web app that wraps the `multiGoogleMCP` tool core: users sign in
+with email + password, connect Google accounts, and hand out scoped agents +
+API keys to their AI clients. Built with Next.js (App Router), Prisma +
+Postgres, and Auth.js.
+
+Platform login (email + password) is entirely separate from connecting a
+Google account (its own OAuth flow requesting Gmail/Calendar/Drive/Chat
+scopes) — how a user logs into the app has no bearing on which Google
+accounts they've linked.
 
 > **Status: functional end-to-end.** Sign in, connect Google accounts
 > (encrypted tokens), create scoped agents, mint API keys, and connect an MCP
@@ -43,11 +49,13 @@ Example Claude Desktop config (`claude_desktop_config.json`):
    `postgresql://santosh@localhost:5432/multigmail`; change `DATABASE_URL` in
    `.env` if yours differs.
 
-2. **Google Web OAuth client** (for platform login — separate from the Desktop
-   client the local MCP server uses):
+2. **Google Web OAuth client** (used only for *connecting Google accounts*,
+   not for platform login — separate from the Desktop client the local MCP
+   server uses):
    - Google Cloud Console → **APIs & Services → Credentials → Create
      credentials → OAuth client ID → Web application**.
-   - Authorized redirect URI: `http://localhost:3000/api/auth/callback/google`
+   - Authorized redirect URI:
+     `http://localhost:3000/api/connect/google/callback`
    - Paste the client id/secret into `.env` as `AUTH_GOOGLE_ID` /
      `AUTH_GOOGLE_SECRET`.
    - Add yourself as a **Test user** on the OAuth consent screen.
@@ -66,8 +74,13 @@ Example Claude Desktop config (`claude_desktop_config.json`):
 npm run dev                # http://localhost:3000
 ```
 
-Open the app, click **Continue with Google**, and you should land on the
-dashboard.
+Open the app, click **Sign up** to create an account (email + password, min
+8 characters), and you should land on the dashboard.
+
+> **No password reset flow yet.** A locked-out user has no self-service
+> recovery — if you forget a password, reset it directly in the database
+> (`UPDATE "User" SET "passwordHash" = ...` with a bcrypt hash) until this is
+> built.
 
 ## Useful scripts
 

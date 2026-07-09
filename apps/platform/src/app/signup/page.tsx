@@ -1,13 +1,16 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { login } from "./actions";
+import { signup } from "../actions";
 
 const ERRORS: Record<string, string> = {
-  invalid: "Incorrect email or password.",
+  missing: "Email and password are required.",
+  weak: "Password must be at least 8 characters.",
+  mismatch: "Passwords don't match.",
+  taken: "An account with that email already exists.",
 };
 
-export default async function Home({
+export default async function SignupPage({
   searchParams,
 }: {
   searchParams: Promise<{ error?: string }>;
@@ -24,7 +27,7 @@ export default async function Home({
           Google MCP Platform
         </p>
         <h1 className="mt-4 text-center text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
-          Sign in
+          Create an account
         </h1>
 
         {error && (
@@ -33,7 +36,7 @@ export default async function Home({
           </div>
         )}
 
-        <form action={login} className="mt-6 flex flex-col gap-3">
+        <form action={signup} className="mt-6 flex flex-col gap-3">
           <div>
             <label
               htmlFor="email"
@@ -62,7 +65,28 @@ export default async function Home({
               name="password"
               type="password"
               required
-              autoComplete="current-password"
+              minLength={8}
+              autoComplete="new-password"
+              className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            />
+            <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+              At least 8 characters.
+            </p>
+          </div>
+          <div>
+            <label
+              htmlFor="confirmPassword"
+              className="block text-xs font-medium text-slate-500 dark:text-slate-400"
+            >
+              Confirm password
+            </label>
+            <input
+              id="confirmPassword"
+              name="confirmPassword"
+              type="password"
+              required
+              minLength={8}
+              autoComplete="new-password"
               className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             />
           </div>
@@ -70,17 +94,17 @@ export default async function Home({
             type="submit"
             className="mt-2 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:opacity-90 dark:bg-white dark:text-slate-900"
           >
-            Sign in
+            Create account
           </button>
         </form>
 
         <p className="mt-4 text-center text-sm text-slate-500 dark:text-slate-400">
-          No account?{" "}
+          Already have an account?{" "}
           <Link
-            href="/signup"
+            href="/"
             className="text-indigo-600 hover:underline dark:text-indigo-400"
           >
-            Sign up
+            Sign in
           </Link>
         </p>
       </div>
