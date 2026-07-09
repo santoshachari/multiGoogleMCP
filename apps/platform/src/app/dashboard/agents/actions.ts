@@ -72,6 +72,12 @@ export async function saveGrant(formData: FormData) {
   });
 
   revalidatePath(`/dashboard/agents/${agentId}`);
+  // revalidatePath alone can leave the client's Router Cache serving the
+  // pre-mutation page (the selects visually "reset" to the old values even
+  // though the DB is correct — confirmed via a hard reload showing the right
+  // data). Redirecting back to the same URL forces a real navigation, which
+  // is not served from that stale cache.
+  redirect(`/dashboard/agents/${agentId}`);
 }
 
 export async function removeGrant(formData: FormData) {
@@ -83,6 +89,7 @@ export async function removeGrant(formData: FormData) {
     where: { id, agent: { userId } },
   });
   revalidatePath(`/dashboard/agents/${agentId}`);
+  redirect(`/dashboard/agents/${agentId}`);
 }
 
 // Returns the plaintext key exactly once; only its hash is stored.
@@ -111,4 +118,5 @@ export async function revokeApiKey(formData: FormData) {
     data: { revokedAt: new Date() },
   });
   revalidatePath(`/dashboard/agents/${agentId}`);
+  redirect(`/dashboard/agents/${agentId}`);
 }

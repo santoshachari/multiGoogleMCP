@@ -4,3 +4,4 @@ credentials.json
 tokens.json
 .mcp.json
 .claude/
+.gstack/
