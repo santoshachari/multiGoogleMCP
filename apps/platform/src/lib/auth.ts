@@ -41,6 +41,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
   session: { strategy: "jwt" },
   pages: { signIn: "/" },
+  // Auth.js only auto-trusts the request Host header in dev mode. Running as
+  // a production `next start` service (see README "Running as a background
+  // service") on a non-default port otherwise fails every auth request with
+  // UntrustedHost. This app is self-hosted for a known set of users behind no
+  // reverse proxy, so trusting the host here is the standard, safe opt-in —
+  // see https://errors.authjs.dev#untrustedhost.
+  trustHost: true,
   callbacks: {
     jwt({ token, user }) {
       if (user) token.id = user.id;
