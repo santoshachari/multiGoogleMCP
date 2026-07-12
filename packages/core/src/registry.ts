@@ -9,6 +9,8 @@ type Args = Record<string, unknown>;
 const str = (v: unknown): v is string => typeof v === "string";
 const num = (v: unknown): v is number => typeof v === "number";
 const bool = (v: unknown): v is boolean => typeof v === "boolean";
+const strArray = (v: unknown): v is string[] =>
+  Array.isArray(v) && v.every((x) => typeof x === "string");
 
 // Every tool this core implements (the local server's tokens.json-only
 // gmail_list_accounts is intentionally excluded).
@@ -396,6 +398,7 @@ async function dispatch(name: string, args: Args): Promise<string> {
         str(args.timeZone) ? args.timeZone : undefined,
         bool(args.addGoogleMeet) ? args.addGoogleMeet : false,
         bool(args.enableGeminiNotes) ? args.enableGeminiNotes : false,
+        strArray(args.recurrence) ? args.recurrence : undefined,
       );
     case "calendar_update_event":
       if (!str(args.email) || !str(args.calendarId) || !str(args.eventId))
@@ -411,6 +414,7 @@ async function dispatch(name: string, args: Args): Promise<string> {
         str(args.location) ? args.location : undefined,
         str(args.attendees) ? args.attendees : undefined,
         str(args.timeZone) ? args.timeZone : undefined,
+        strArray(args.recurrence) ? args.recurrence : undefined,
       );
     case "calendar_delete_event":
       if (!str(args.email) || !str(args.calendarId) || !str(args.eventId))
