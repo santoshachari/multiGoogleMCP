@@ -1,20 +1,28 @@
 # Google MCP Platform — web app
 
-Multi-tenant web app that wraps the `multiGoogleMCP` tool core: users sign in,
-connect Google accounts, and hand out scoped agents + API keys to their AI
-clients. Built with Next.js (App Router), Prisma + Postgres, and Auth.js.
+Multi-tenant web app that wraps the `multiGoogleMCP` tool core: users sign in
+with email + password, connect Google accounts, and hand out scoped agents +
+API keys to their AI clients. Built with Next.js (App Router), Prisma +
+Postgres, and Auth.js.
+
+Platform login (email + password) is entirely separate from connecting a
+Google account (its own OAuth flow requesting Gmail/Calendar/Drive/Chat
+scopes) — how a user logs into the app has no bearing on which Google
+accounts they've linked.
 
 > **Status: functional end-to-end.** Sign in, connect Google accounts
 > (encrypted tokens), create scoped agents, mint API keys, and connect an MCP
 > client to the agent's endpoint — all 53 Gmail/Calendar/Drive/Chat tools are
-> served, scoped per agent.
+> served, scoped per agent. Runs as a persistent background service on
+> **port 3800** (see "Running as a background service" below) — chosen so it
+> doesn't collide with the default `3000` other local projects tend to use.
 
 ## Connecting an MCP client
 
 Each agent is served at a single endpoint, authenticated by one of its API keys:
 
 ```
-POST http://localhost:3000/api/mcp
+POST http://localhost:3800/api/mcp
 Authorization: Bearer mcp_<your-key>
 ```
 
@@ -30,7 +38,7 @@ Example Claude Desktop config (`claude_desktop_config.json`):
   "mcpServers": {
     "my-google-agent": {
       "type": "http",
-      "url": "http://localhost:3000/api/mcp",
+      "url": "http://localhost:3800/api/mcp",
       "headers": { "Authorization": "Bearer mcp_<your-key>" }
     }
   }
@@ -43,11 +51,16 @@ Example Claude Desktop config (`claude_desktop_config.json`):
    `postgresql://santosh@localhost:5432/multigmail`; change `DATABASE_URL` in
    `.env` if yours differs.
 
-2. **Google Web OAuth client** (for platform login — separate from the Desktop
-   client the local MCP server uses):
+2. **Google Web OAuth client** (used only for *connecting Google accounts*,
+   not for platform login — separate from the Desktop client the local MCP
+   server uses):
    - Google Cloud Console → **APIs & Services → Credentials → Create
      credentials → OAuth client ID → Web application**.
-   - Authorized redirect URI: `http://localhost:3000/api/auth/callback/google`
+   - Authorized redirect URI:
+     `http://localhost:3800/api/connect/google/callback`
+     (if you also run `npm run dev`, which defaults to port 3000, add
+     `http://localhost:3000/api/connect/google/callback` too — extra
+     registered URIs are harmless.)
    - Paste the client id/secret into `.env` as `AUTH_GOOGLE_ID` /
      `AUTH_GOOGLE_SECRET`.
    - Add yourself as a **Test user** on the OAuth consent screen.
@@ -62,12 +75,58 @@ Example Claude Desktop config (`claude_desktop_config.json`):
 
 ## Run
 
+For day-to-day development, use the dev server (hot reload, defaults to
+port 3000 unless you pass `-p`):
+
 ```bash
 npm run dev                # http://localhost:3000
 ```
 
-Open the app, click **Continue with Google**, and you should land on the
-dashboard.
+For actually using the platform (connecting MCP clients, keeping it up
+across reboots), run it as a background service instead — see below.
+
+Either way: open the app, click **Sign up** to create an account (email +
+password, min 8 characters), and you should land on the dashboard.
+
+> **No password reset flow yet.** A locked-out user has no self-service
+> recovery — if you forget a password, reset it directly in the database
+> (`UPDATE "User" SET "passwordHash" = ...` with a bcrypt hash) until this is
+> built.
+
+## Running as a background service (macOS)
+
+The platform runs as a `launchd` service on **port 3800**, the same pattern
+used by the sibling Kosha project (which owns port 8787) — each local
+service gets its own dedicated port so they never collide.
+
+**Service file:** `~/Library/LaunchAgents/com.multigmail-platform.server.plist`
+(machine-local, not part of this repo — recreate it if you set up on a new
+machine). It runs `next start -p 3800` from this directory, with:
+
+- `RunAtLoad` — starts automatically on login
+- `KeepAlive` — restarts automatically if the process crashes
+- Logs at `apps/platform/logs/server.out.log` / `server.err.log`
+
+```bash
+# Rebuild after pulling code changes, then restart the service to pick it up
+npm run build
+launchctl kickstart -k gui/$(id -u)/com.multigmail-platform.server
+
+# Check it's running
+launchctl list | grep multigmail-platform
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3800/
+
+# Stop it
+launchctl bootout gui/$(id -u)/com.multigmail-platform.server
+
+# Start it (after bootout, or on a fresh machine once the plist exists)
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.multigmail-platform.server.plist
+```
+
+Environment variables (`DATABASE_URL`, `AUTH_SECRET`, `AUTH_GOOGLE_ID`,
+`AUTH_GOOGLE_SECRET`, `ENCRYPTION_KEY`) are read from `.env` in this
+directory — Next.js loads it automatically in production mode too, so the
+plist itself only needs `PATH` and `NODE_ENV=production`.
 
 ## Useful scripts
 

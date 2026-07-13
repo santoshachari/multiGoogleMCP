@@ -757,7 +757,12 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
                 isAllDay: { type: "boolean", description: "If true, startDateTime and endDateTime are treated as dates (YYYY-MM-DD) for an all-day event." },
                 timeZone: { type: "string", description: "Timezone for the event (e.g. 'America/Los_Angeles'). Defaults to account timezone." },
                 addGoogleMeet: { type: "boolean", description: "If true, attaches a Google Meet video conference to the event and returns its join link." },
-                enableGeminiNotes: { type: "boolean", description: "If true (requires addGoogleMeet), enables Gemini 'Take notes for me' auto-generated notes for the Meet space. Requires a Google Workspace account with Gemini access; silently reported as unavailable otherwise." }
+                enableGeminiNotes: { type: "boolean", description: "If true (requires addGoogleMeet), enables Gemini 'Take notes for me' auto-generated notes for the Meet space. Requires a Google Workspace account with Gemini access; silently reported as unavailable otherwise." },
+                recurrence: {
+                    type: "array",
+                    items: { type: "string" },
+                    description: "Makes this a repeating event. One or more RFC 5545 recurrence rule lines (RRULE/EXRULE/RDATE/EXDATE) — do NOT include DTSTART/DTEND, those come from startDateTime/endDateTime. Examples: [\"RRULE:FREQ=WEEKLY;BYDAY=MO,WE,FR\"] for every Mon/Wed/Fri forever; [\"RRULE:FREQ=DAILY;COUNT=10\"] for 10 daily occurrences; [\"RRULE:FREQ=MONTHLY;BYMONTHDAY=1;UNTIL=20261231T000000Z\"] for the 1st of every month until end of 2026. Omit entirely for a one-off event."
+                }
             },
             required: ["email", "calendarId", "title", "startDateTime", "endDateTime"]
         }
@@ -770,14 +775,19 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
             properties: {
                 email: { type: "string", description: "The authenticated Google account." },
                 calendarId: { type: "string", description: "The calendar ID. Use 'primary' for the main calendar." },
-                eventId: { type: "string", description: "The event ID to update (from calendar_list_events)." },
+                eventId: { type: "string", description: "The event ID to update (from calendar_list_events). To edit a whole recurring series, use the series' event ID (the recurringEventId), not a single instance's ID." },
                 title: { type: "string", description: "New title/summary." },
                 startDateTime: { type: "string", description: "New start date/time in ISO 8601 format." },
                 endDateTime: { type: "string", description: "New end date/time in ISO 8601 format." },
                 description: { type: "string", description: "New description." },
                 location: { type: "string", description: "New location." },
                 attendees: { type: "string", description: "Comma-separated list of attendee email addresses (replaces existing)." },
-                timeZone: { type: "string", description: "Timezone for the event." }
+                timeZone: { type: "string", description: "Timezone for the event." },
+                recurrence: {
+                    type: "array",
+                    items: { type: "string" },
+                    description: "Replaces the event's recurrence rule with one or more RFC 5545 lines (same format as calendar_create_event's recurrence). Pass an empty array to stop the event from repeating (turn it back into a single event). Omit entirely to leave recurrence unchanged."
+                }
             },
             required: ["email", "calendarId", "eventId"]
         }

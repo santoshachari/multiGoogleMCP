@@ -37,6 +37,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# launchd service logs (see README "Running as a background service")
+/logs
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

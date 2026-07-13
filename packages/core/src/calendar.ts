@@ -51,6 +51,10 @@ export async function calendarListEvents(
     })),
     status: e.status,
     htmlLink: e.htmlLink,
+    // Present only on instances of a repeating event — this is the id of the
+    // series itself. Pass it (not this instance's own id) to
+    // calendar_update_event/calendar_delete_event to affect the whole series.
+    recurringEventId: e.recurringEventId,
   }));
   return JSON.stringify(
     { events, nextPageToken: response.data.nextPageToken || null },
@@ -89,6 +93,11 @@ export async function calendarGetEvent(
         e.conferenceData?.entryPoints?.find(
           (ep) => ep.entryPointType === "video",
         )?.uri,
+      // recurrence is only present when eventId refers to a series itself
+      // (RFC 5545 RRULE/EXRULE/RDATE/EXDATE lines). recurringEventId is only
+      // present when eventId refers to one instance of a series.
+      recurrence: e.recurrence,
+      recurringEventId: e.recurringEventId,
       created: e.created,
       updated: e.updated,
     },
@@ -142,6 +151,7 @@ export async function calendarCreateEvent(
   timeZone?: string,
   addGoogleMeet?: boolean,
   enableGeminiNotes?: boolean,
+  recurrence?: string[],
 ) {
   const { client, permissions } = await getAuthClient(email);
   assertCalendarCanWrite(permissions, email);
@@ -165,6 +175,7 @@ export async function calendarCreateEvent(
     start: startObj,
     end: endObj,
     attendees: attendeeList.length > 0 ? attendeeList : undefined,
+    recurrence: recurrence && recurrence.length > 0 ? recurrence : undefined,
   };
 
   if (addGoogleMeet) {
@@ -206,7 +217,12 @@ export async function calendarCreateEvent(
     }
   }
 
-  return `Event created. ID: ${response.data.id}${meetLink ? `, Meet Link: ${meetLink}` : ""}, Link: ${response.data.htmlLink}.${notesNote}`;
+  const recurrenceNote =
+    response.data.recurrence && response.data.recurrence.length > 0
+      ? ` Repeats: ${response.data.recurrence.join("; ")}.`
+      : "";
+
+  return `Event created. ID: ${response.data.id}${meetLink ? `, Meet Link: ${meetLink}` : ""}, Link: ${response.data.htmlLink}.${notesNote}${recurrenceNote}`;
 }
 
 export async function calendarUpdateEvent(
@@ -220,6 +236,7 @@ export async function calendarUpdateEvent(
   location?: string,
   attendees?: string,
   timeZone?: string,
+  recurrence?: string[],
 ) {
   const { client, permissions } = await getAuthClient(email);
   assertCalendarCanWrite(permissions, email);
@@ -236,6 +253,8 @@ export async function calendarUpdateEvent(
     patch.end = { dateTime: endDateTime, timeZone };
   if (attendees !== undefined)
     patch.attendees = attendees.split(",").map((a) => ({ email: a.trim() }));
+  // Pass [] to clear an event's recurrence (turn it back into a single event).
+  if (recurrence !== undefined) patch.recurrence = recurrence;
 
   const response = await calendar.events.patch({
     calendarId,

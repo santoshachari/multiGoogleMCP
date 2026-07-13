@@ -5,3 +5,4 @@ export * from "./chat.js";
 export * from "./calendar.js";
 export * from "./drive.js";
 export * from "./registry.js";
+export * from "./toolRequirements.js";

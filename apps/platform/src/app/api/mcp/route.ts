@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   TOOL_DEFINITIONS,
   IMPLEMENTED_TOOLS,
-  toolService,
   executeTool,
+  meetsToolRequirement,
+  toolRequirementLabel,
+  describePermissions,
   type AccountPermissions,
 } from "@multigoogle/core";
 import { prisma } from "@/lib/prisma";
@@ -34,7 +36,6 @@ function rpcError(
 interface AgentContext {
   agentName: string;
   grantsByEmail: Map<string, GrantEntry>;
-  services: Set<string>;
 }
 
 // Resolve the bearer key → agent + grants. Returns null if unauthenticated.
@@ -55,7 +56,6 @@ async function authenticate(req: NextRequest): Promise<AgentContext | null> {
     .catch(() => {});
 
   const grantsByEmail = new Map<string, GrantEntry>();
-  const services = new Set<string>();
   for (const g of key.agent.grants) {
     const permissions: AccountPermissions = {
       gmail: g.gmail as AccountPermissions["gmail"],
@@ -67,17 +67,22 @@ async function authenticate(req: NextRequest): Promise<AgentContext | null> {
       refreshTokenEnc: g.account.refreshTokenEnc,
       permissions,
     });
-    for (const svc of ["gmail", "calendar", "drive", "chat"] as const) {
-      if (permissions[svc] !== "none") services.add(svc);
-    }
   }
 
-  return { agentName: key.agent.name, grantsByEmail, services };
+  return { agentName: key.agent.name, grantsByEmail };
 }
 
+// A tool is advertised if AT LEAST ONE granted account meets its minimum
+// tier (the actual account is chosen via the "email" argument at call time).
+// This is tier-accurate, not just "is the service non-none": an agent with
+// calendar=readonly will NOT see calendar_create_event, matching exactly
+// what would succeed if called.
 function advertisedTools(ctx: AgentContext) {
+  const allPerms = [...ctx.grantsByEmail.values()].map((g) => g.permissions);
   return TOOL_DEFINITIONS.filter(
-    (d) => IMPLEMENTED.has(d.name) && ctx.services.has(toolService(d.name) ?? ""),
+    (d) =>
+      IMPLEMENTED.has(d.name) &&
+      allPerms.some((perms) => meetsToolRequirement(perms, d.name)),
   );
 }
 
@@ -86,15 +91,21 @@ async function handleMessage(
   ctx: AgentContext,
 ): Promise<object | null> {
   switch (msg.method) {
-    case "initialize":
+    case "initialize": {
+      const accountLines = [...ctx.grantsByEmail.entries()].map(
+        ([email, g]) => `- ${email} — ${describePermissions(g.permissions)}`,
+      );
       return rpcResult(msg.id, {
         protocolVersion: msg.params?.protocolVersion ?? PROTOCOL_VERSION,
         capabilities: { tools: {} },
         serverInfo: { name: `agent:${ctx.agentName}`, version: "0.1.0" },
         instructions:
-          `This agent can act on these Google accounts — pass one as the "email" ` +
-          `argument to every tool: ${[...ctx.grantsByEmail.keys()].join(", ") || "(none granted yet)"}.`,
+          `Pass one of these accounts as the "email" argument to every tool. ` +
+          `Only the tools each account's permissions allow are listed in tools/list — ` +
+          `if a tool isn't there, this agent can't do that yet for that account:\n` +
+          (accountLines.join("\n") || "(no accounts granted yet)"),
       });
+    }
 
     case "notifications/initialized":
     case "notifications/cancelled":
@@ -113,9 +124,12 @@ async function handleMessage(
         return rpcError(msg.id, -32602, `Unknown tool: ${name}`);
       }
 
-      // Gate by service access for the targeted account. Read tools have no
-      // permission guard in core, so the endpoint enforces service scope here.
-      const svc = toolService(name);
+      // Gate by the tool's exact minimum tier for the targeted account — not
+      // just "is the service non-none". Read tools have no permission guard
+      // in core, and write tools' core guards only check the ceiling for
+      // *that* tool's own service/tier, so this is the only place that knows
+      // "gmail_send specifically needs full, not just any gmail access" up
+      // front, matching what tools/list already advertised.
       const email = typeof args.email === "string" ? args.email : undefined;
       const perms = email ? ctx.grantsByEmail.get(email)?.permissions : undefined;
       if (!perms) {
@@ -129,12 +143,12 @@ async function handleMessage(
           isError: true,
         });
       }
-      if (svc && perms[svc as keyof AccountPermissions] === "none") {
+      if (!meetsToolRequirement(perms, name)) {
         return rpcResult(msg.id, {
           content: [
             {
               type: "text",
-              text: `Error: this agent's grant for ${email} does not include ${svc} access.`,
+              text: `Error: ${name} requires ${toolRequirementLabel(name)} for ${email}, but this agent's grant is ${describePermissions(perms)}.`,
             },
           ],
           isError: true,

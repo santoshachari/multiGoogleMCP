@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { mintApiKey } from "../actions";
 
 export function MintKey({ agentId }: { agentId: string }) {
+  const router = useRouter();
   const [name, setName] = useState("");
   const [minted, setMinted] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -15,6 +17,10 @@ export function MintKey({ agentId }: { agentId: string }) {
       const key = await mintApiKey(agentId, name);
       setMinted(key);
       setName("");
+      // mintApiKey can't redirect() (it needs to return the plaintext key to
+      // us), so the server-rendered key list below wouldn't otherwise pick up
+      // the new row until a manual reload — refresh it explicitly.
+      router.refresh();
     } finally {
       setLoading(false);
     }
