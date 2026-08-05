@@ -63,6 +63,12 @@ export default async function AgentDetail({
   const grantByAccount = new Map(agent.grants.map((g) => [g.connectedAccountId, g]));
   const mcpUrl = `${process.env.PUBLIC_BASE_URL ?? "http://localhost:3800"}/api/mcp`;
 
+  const logs = await prisma.auditLog.findMany({
+    where: { agentId: agent.id },
+    orderBy: { createdAt: "desc" },
+    take: 50,
+  });
+
   return (
     <main className="min-h-dvh bg-slate-50 px-6 py-10 dark:bg-slate-950">
       <div className="mx-auto max-w-2xl">
@@ -241,6 +247,56 @@ export default async function AgentDetail({
           )}
 
           <MintKey agentId={agent.id} mcpUrl={mcpUrl} />
+        </section>
+
+        {/* --- Activity --- */}
+        <section className="mt-8">
+          <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+            Recent activity
+          </h2>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            The last 50 tool calls this agent made, newest first.
+          </p>
+
+          {logs.length === 0 ? (
+            <div className="mt-3 rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
+              No activity yet.
+            </div>
+          ) : (
+            <ul className="mt-3 space-y-1.5">
+              {logs.map((log) => (
+                <li
+                  key={log.id}
+                  className="flex items-center justify-between gap-4 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm dark:border-slate-800 dark:bg-slate-900"
+                >
+                  <div className="min-w-0 flex items-center gap-3">
+                    <span
+                      className={`inline-flex items-center rounded-md px-1.5 py-0.5 font-mono text-[11px] ${
+                        log.status === "ok"
+                          ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                          : log.status === "denied"
+                            ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
+                            : "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300"
+                      }`}
+                    >
+                      {log.status}
+                    </span>
+                    <span className="truncate font-mono text-xs text-slate-900 dark:text-slate-100">
+                      {log.toolName}
+                    </span>
+                    {log.accountEmail && (
+                      <span className="truncate text-xs text-slate-500 dark:text-slate-400">
+                        {log.accountEmail}
+                      </span>
+                    )}
+                  </div>
+                  <span className="whitespace-nowrap text-xs text-slate-400 dark:text-slate-500">
+                    {log.createdAt.toISOString().slice(0, 16).replace("T", " ")}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
       </div>
     </main>

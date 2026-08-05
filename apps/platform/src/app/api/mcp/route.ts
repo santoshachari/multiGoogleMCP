@@ -34,8 +34,24 @@ function rpcError(
 }
 
 interface AgentContext {
+  agentId: string;
   agentName: string;
+  apiKeyId: string;
   grantsByEmail: Map<string, GrantEntry>;
+}
+
+// Fire-and-forget: never let audit logging affect the response.
+function logCall(
+  ctx: AgentContext,
+  toolName: string,
+  accountEmail: string | undefined,
+  status: "ok" | "denied" | "error",
+) {
+  prisma.auditLog
+    .create({
+      data: { apiKeyId: ctx.apiKeyId, agentId: ctx.agentId, toolName, accountEmail, status },
+    })
+    .catch(() => {});
 }
 
 // Resolve the bearer key → agent + grants. Returns null if unauthenticated.
@@ -69,7 +85,7 @@ async function authenticate(req: NextRequest): Promise<AgentContext | null> {
     });
   }
 
-  return { agentName: key.agent.name, grantsByEmail };
+  return { agentId: key.agent.id, agentName: key.agent.name, apiKeyId: key.id, grantsByEmail };
 }
 
 // A tool is advertised if AT LEAST ONE granted account meets its minimum
@@ -133,6 +149,7 @@ async function handleMessage(
       const email = typeof args.email === "string" ? args.email : undefined;
       const perms = email ? ctx.grantsByEmail.get(email)?.permissions : undefined;
       if (!perms) {
+        logCall(ctx, name, email, "denied");
         return rpcResult(msg.id, {
           content: [
             {
@@ -144,6 +161,7 @@ async function handleMessage(
         });
       }
       if (!meetsToolRequirement(perms, name)) {
+        logCall(ctx, name, email, "denied");
         return rpcResult(msg.id, {
           content: [
             {
@@ -161,8 +179,10 @@ async function handleMessage(
           name,
           args,
         );
+        logCall(ctx, name, email, "ok");
         return rpcResult(msg.id, { content: [{ type: "text", text }] });
       } catch (e) {
+        logCall(ctx, name, email, "error");
         return rpcResult(msg.id, {
           content: [
             { type: "text", text: `Error: ${e instanceof Error ? e.message : String(e)}` },
