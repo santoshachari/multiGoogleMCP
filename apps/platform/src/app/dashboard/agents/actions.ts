@@ -23,6 +23,29 @@ export async function createAgent(formData: FormData) {
   const agent = await prisma.agent.create({
     data: { userId, name, description },
   });
+
+  // Default a new agent's access to the same level each connected account
+  // was granted at connect-time, rather than starting locked at "none" on
+  // everything. Still editable per-account afterward.
+  const accounts = await prisma.connectedAccount.findMany({
+    where: { userId, status: "active" },
+  });
+  if (accounts.length > 0) {
+    await prisma.agentGrant.createMany({
+      data: accounts.map((account) => {
+        const ceiling = summarizeScopes(account.grantedScopes);
+        return {
+          agentId: agent.id,
+          connectedAccountId: account.id,
+          gmail: ceiling.gmail,
+          calendar: ceiling.calendar,
+          drive: ceiling.drive,
+          chat: ceiling.chat,
+        };
+      }),
+    });
+  }
+
   redirect(`/dashboard/agents/${agent.id}`);
 }
 
