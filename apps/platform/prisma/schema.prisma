@@ -143,6 +143,17 @@ model ApiKey {
   agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
 }
 
+// A one-time link an admin (or Veda, via the admin API) issues so a specific
+// email can create an account. Signup is closed without one.
+model Invite {
+  id         String    @id @default(cuid())
+  email      String
+  token      String    @unique
+  createdAt  DateTime  @default(now())
+  expiresAt  DateTime
+  redeemedAt DateTime?
+}
+
 // Optional record of tool invocations (populated in Phase 5).
 model AuditLog {
   id           String   @id @default(cuid())

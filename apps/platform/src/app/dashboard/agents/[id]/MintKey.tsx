@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { mintApiKey } from "../actions";
+import { CopyField } from "./CopyField";
 
-export function MintKey({ agentId }: { agentId: string }) {
+export function MintKey({ agentId, mcpUrl }: { agentId: string; mcpUrl: string }) {
   const router = useRouter();
   const [name, setName] = useState("");
   const [minted, setMinted] = useState<string | null>(null);
@@ -25,6 +26,25 @@ export function MintKey({ agentId }: { agentId: string }) {
       setLoading(false);
     }
   }
+
+  const claudeDesktopConfig = JSON.stringify(
+    {
+      mcpServers: {
+        [`google-${agentId.slice(0, 6)}`]: {
+          command: "npx",
+          args: [
+            "-y",
+            "mcp-remote",
+            mcpUrl,
+            "--header",
+            `Authorization: Bearer ${minted ?? "<your-key>"}`,
+          ],
+        },
+      },
+    },
+    null,
+    2,
+  );
 
   return (
     <div className="mt-3">
@@ -48,13 +68,29 @@ export function MintKey({ agentId }: { agentId: string }) {
               {copied ? "Copied" : "Copy"}
             </button>
           </div>
+
+          <div className="mt-4 border-t border-emerald-200 pt-4 dark:border-emerald-900">
+            <p className="text-xs font-medium text-emerald-800 dark:text-emerald-300">
+              Add this to any MCP client
+            </p>
+            <p className="mt-1 text-xs text-emerald-700 dark:text-emerald-400">
+              For Claude Desktop, ClaudeClaw, or anything else that reads a{" "}
+              <code>mcpServers</code> config (like <code>.mcp.json</code> or{" "}
+              <code>claude_desktop_config.json</code>), paste this block in —
+              it already has your key and the server address filled in.
+            </p>
+            <div className="mt-2">
+              <CopyField label="Config snippet" value={claudeDesktopConfig} multiline />
+            </div>
+          </div>
+
           <button
             type="button"
             onClick={() => {
               setMinted(null);
               setCopied(false);
             }}
-            className="mt-2 text-xs text-emerald-700 hover:underline dark:text-emerald-400"
+            className="mt-3 text-xs text-emerald-700 hover:underline dark:text-emerald-400"
           >
             Done
           </button>

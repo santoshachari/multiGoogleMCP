@@ -6,6 +6,7 @@ import { summarizeScopes } from "@/lib/googleScopes";
 import { allowedGmailTiers, allowedServiceTiers } from "@/lib/permissions";
 import { deleteAgent, saveGrant, revokeApiKey } from "../actions";
 import { MintKey } from "./MintKey";
+import { CopyField } from "./CopyField";
 
 function TierSelect({
   name,
@@ -60,6 +61,7 @@ export default async function AgentDetail({
     orderBy: { createdAt: "desc" },
   });
   const grantByAccount = new Map(agent.grants.map((g) => [g.connectedAccountId, g]));
+  const mcpUrl = `${process.env.PUBLIC_BASE_URL ?? "http://localhost:3800"}/api/mcp`;
 
   return (
     <main className="min-h-dvh bg-slate-50 px-6 py-10 dark:bg-slate-950">
@@ -171,6 +173,22 @@ export default async function AgentDetail({
           )}
         </section>
 
+        {/* --- Connect this agent --- */}
+        <section className="mt-8">
+          <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+            Connect this agent
+          </h2>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Any MCP client (Claude Desktop, Claude Code, ClaudeClaw, etc.)
+            needs two things to use this agent: the server address below, and
+            an API key from &quot;API keys&quot; further down. Mint a key
+            first — the ready-to-paste config below fills itself in with it.
+          </p>
+          <div className="mt-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+            <CopyField label="MCP server address" value={mcpUrl} />
+          </div>
+        </section>
+
         {/* --- API keys --- */}
         <section className="mt-8">
           <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
@@ -222,7 +240,7 @@ export default async function AgentDetail({
             </ul>
           )}
 
-          <MintKey agentId={agent.id} />
+          <MintKey agentId={agent.id} mcpUrl={mcpUrl} />
         </section>
       </div>
     </main>

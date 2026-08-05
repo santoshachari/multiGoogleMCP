@@ -1,53 +1,31 @@
-import { auth } from "@/lib/auth";
-import { redirect } from "next/navigation";
 import Link from "next/link";
-import { prisma } from "@/lib/prisma";
-import { signup } from "../actions";
+import { resetPassword } from "../actions";
 
 const ERRORS: Record<string, string> = {
-  missing: "Email and password are required.",
   weak: "Password must be at least 8 characters.",
   mismatch: "Passwords don't match.",
-  taken: "An account with that email already exists.",
+  invalid: "This reset link is invalid or expired. Request a new one.",
 };
 
-export default async function SignupPage({
+export default async function ResetPasswordPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; token?: string }>;
+  searchParams: Promise<{ token?: string; email?: string; error?: string }>;
 }) {
-  const session = await auth();
-  if (session?.user) redirect("/dashboard");
+  const { token, email, error } = await searchParams;
 
-  const { error, token } = await searchParams;
-
-  const invite = token
-    ? await prisma.invite.findUnique({ where: { token } })
-    : null;
-  const inviteValid =
-    !!invite && !invite.redeemedAt && invite.expiresAt > new Date();
-
-  if (!inviteValid) {
+  if (!token || !email) {
     return (
       <main className="min-h-dvh grid place-items-center px-6 bg-slate-50 dark:bg-slate-950">
         <div className="w-full max-w-sm text-center">
-          <p className="font-mono text-xs uppercase tracking-widest text-indigo-600 dark:text-indigo-400">
-            Google MCP Platform
-          </p>
-          <h1 className="mt-4 text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
-            Invite required
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
+            Invalid link
           </h1>
-          <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">
-            {token
-              ? "This invite link is invalid, expired, or already used."
-              : "This platform is invite-only."}{" "}
-            Ask whoever manages access to send you a link.
-          </p>
           <Link
-            href="/"
-            className="mt-6 inline-block text-sm text-indigo-600 hover:underline dark:text-indigo-400"
+            href="/forgot-password"
+            className="mt-4 inline-block text-sm text-indigo-600 hover:underline dark:text-indigo-400"
           >
-            Back to sign in
+            Request a new reset link
           </Link>
         </div>
       </main>
@@ -61,11 +39,8 @@ export default async function SignupPage({
           Google MCP Platform
         </p>
         <h1 className="mt-4 text-center text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
-          Create your account
+          Set a new password
         </h1>
-        <p className="mt-2 text-center text-sm text-slate-500 dark:text-slate-400">
-          Invited as <span className="font-medium">{invite.email}</span>
-        </p>
 
         {error && (
           <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-400">
@@ -73,14 +48,15 @@ export default async function SignupPage({
           </div>
         )}
 
-        <form action={signup} className="mt-6 flex flex-col gap-3">
+        <form action={resetPassword} className="mt-6 flex flex-col gap-3">
           <input type="hidden" name="token" value={token} />
+          <input type="hidden" name="email" value={email} />
           <div>
             <label
               htmlFor="password"
               className="block text-xs font-medium text-slate-500 dark:text-slate-400"
             >
-              Password
+              New password
             </label>
             <input
               id="password"
@@ -91,9 +67,6 @@ export default async function SignupPage({
               autoComplete="new-password"
               className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             />
-            <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
-              At least 8 characters.
-            </p>
           </div>
           <div>
             <label
@@ -116,19 +89,9 @@ export default async function SignupPage({
             type="submit"
             className="mt-2 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:opacity-90 dark:bg-white dark:text-slate-900"
           >
-            Create account
+            Update password
           </button>
         </form>
-
-        <p className="mt-4 text-center text-sm text-slate-500 dark:text-slate-400">
-          Already have an account?{" "}
-          <Link
-            href="/"
-            className="text-indigo-600 hover:underline dark:text-indigo-400"
-          >
-            Sign in
-          </Link>
-        </p>
       </div>
     </main>
   );

@@ -10,12 +10,12 @@ const ERRORS: Record<string, string> = {
 export default async function Home({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; reset?: string }>;
 }) {
   const session = await auth();
   if (session?.user) redirect("/dashboard");
 
-  const { error } = await searchParams;
+  const { error, reset } = await searchParams;
 
   return (
     <main className="min-h-dvh grid place-items-center px-6 bg-slate-50 dark:bg-slate-950">
@@ -30,6 +30,11 @@ export default async function Home({
         {error && (
           <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-400">
             {ERRORS[error] ?? "Something went wrong. Please try again."}
+          </div>
+        )}
+        {reset === "ok" && (
+          <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-400">
+            Password updated. Sign in with your new password.
           </div>
         )}
 
@@ -75,12 +80,11 @@ export default async function Home({
         </form>
 
         <p className="mt-4 text-center text-sm text-slate-500 dark:text-slate-400">
-          No account?{" "}
           <Link
-            href="/signup"
+            href="/forgot-password"
             className="text-indigo-600 hover:underline dark:text-indigo-400"
           >
-            Sign up
+            Forgot your password?
           </Link>
         </p>
       </div>
