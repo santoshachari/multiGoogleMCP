@@ -6,6 +6,7 @@ import {
   coerceGmailTier,
   coerceServiceTier,
 } from "@/lib/googleScopes";
+import { publicOrigin } from "@/lib/publicUrl";
 
 // Begins the "connect a Google account" OAuth flow. Distinct from platform
 // login: this requests Gmail/Calendar/Drive/Chat scopes and asks for offline
@@ -13,7 +14,7 @@ import {
 export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session?.user) {
-    return NextResponse.redirect(new URL("/", req.url));
+    return NextResponse.redirect(new URL("/", publicOrigin(req)));
   }
 
   const sp = req.nextUrl.searchParams;
@@ -27,7 +28,7 @@ export async function GET(req: NextRequest) {
   const state = crypto.randomBytes(16).toString("hex");
   const redirectUri = new URL(
     "/api/connect/google/callback",
-    req.nextUrl.origin,
+    publicOrigin(req),
   ).toString();
 
   const authUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");

@@ -3,15 +3,18 @@ import { google } from "googleapis";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { encryptSecret } from "@/lib/crypto";
+import { publicOrigin } from "@/lib/publicUrl";
 
 function back(req: NextRequest, status: string) {
-  return NextResponse.redirect(new URL(`/dashboard?connect=${status}`, req.url));
+  return NextResponse.redirect(
+    new URL(`/dashboard?connect=${status}`, publicOrigin(req)),
+  );
 }
 
 export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) {
-    return NextResponse.redirect(new URL("/", req.url));
+    return NextResponse.redirect(new URL("/", publicOrigin(req)));
   }
 
   const sp = req.nextUrl.searchParams;
@@ -26,7 +29,7 @@ export async function GET(req: NextRequest) {
 
   const redirectUri = new URL(
     "/api/connect/google/callback",
-    req.nextUrl.origin,
+    publicOrigin(req),
   ).toString();
 
   const oauth2 = new google.auth.OAuth2(
