@@ -38,14 +38,20 @@ function TierSelect({
   );
 }
 
+const LOGS_PER_PAGE = 20;
+
 export default async function AgentDetail({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ logPage?: string }>;
 }) {
   const session = await auth();
   if (!session?.user?.id) redirect("/");
   const { id } = await params;
+  const { logPage } = await searchParams;
+  const page = Math.max(1, parseInt(logPage ?? "1", 10) || 1);
 
   const agent = await prisma.agent.findFirst({
     where: { id, userId: session.user.id },
@@ -63,11 +69,16 @@ export default async function AgentDetail({
   const grantByAccount = new Map(agent.grants.map((g) => [g.connectedAccountId, g]));
   const mcpUrl = `${process.env.PUBLIC_BASE_URL ?? "http://localhost:3800"}/api/mcp`;
 
-  const logs = await prisma.auditLog.findMany({
-    where: { agentId: agent.id },
-    orderBy: { createdAt: "desc" },
-    take: 50,
-  });
+  const [logs, totalLogs] = await Promise.all([
+    prisma.auditLog.findMany({
+      where: { agentId: agent.id },
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * LOGS_PER_PAGE,
+      take: LOGS_PER_PAGE,
+    }),
+    prisma.auditLog.count({ where: { agentId: agent.id } }),
+  ]);
+  const totalLogPages = Math.max(1, Math.ceil(totalLogs / LOGS_PER_PAGE));
 
   return (
     <main className="min-h-dvh bg-slate-50 px-6 py-10 dark:bg-slate-950">
@@ -255,7 +266,9 @@ export default async function AgentDetail({
             Recent activity
           </h2>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            The last 50 tool calls this agent made, newest first.
+            {totalLogs === 0
+              ? "No tool calls yet."
+              : `${totalLogs} tool call${totalLogs === 1 ? "" : "s"}, newest first.`}
           </p>
 
           {logs.length === 0 ? (
@@ -296,6 +309,34 @@ export default async function AgentDetail({
                 </li>
               ))}
             </ul>
+          )}
+
+          {totalLogPages > 1 && (
+            <div className="mt-3 flex items-center justify-between text-sm">
+              {page > 1 ? (
+                <Link
+                  href={`/dashboard/agents/${agent.id}?logPage=${page - 1}`}
+                  className="text-indigo-600 hover:underline dark:text-indigo-400"
+                >
+                  ← Newer
+                </Link>
+              ) : (
+                <span />
+              )}
+              <span className="text-xs text-slate-400 dark:text-slate-500">
+                Page {page} of {totalLogPages}
+              </span>
+              {page < totalLogPages ? (
+                <Link
+                  href={`/dashboard/agents/${agent.id}?logPage=${page + 1}`}
+                  className="text-indigo-600 hover:underline dark:text-indigo-400"
+                >
+                  Older →
+                </Link>
+              ) : (
+                <span />
+              )}
+            </div>
           )}
         </section>
       </div>
