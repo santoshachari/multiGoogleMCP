@@ -53,8 +53,18 @@ export async function runToolForUser(
 
 // What an agent may do with one connected account.
 export interface GrantEntry {
+  connectedAccountId: string;
   refreshTokenEnc: string;
   permissions: AccountPermissions;
+}
+
+// Google's OAuth2Client throws a GaxiosError whose response body carries
+// { error: "invalid_grant" } when a refresh token is expired or revoked —
+// distinct from any other tool failure, which is why callers can catch this
+// specifically to mark the account as needing reconnection.
+export function isInvalidGrantError(e: unknown): boolean {
+  const data = (e as { response?: { data?: { error?: string } } })?.response?.data;
+  return data?.error === "invalid_grant";
 }
 
 // Resolver for the MCP endpoint: an agent can ONLY reach the accounts it has

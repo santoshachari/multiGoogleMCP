@@ -47,6 +47,7 @@ export default async function Dashboard({
     where: { userId: session.user.id },
     orderBy: { createdAt: "desc" },
   });
+  const needsReconnect = accounts.filter((a) => a.status !== "active");
 
   return (
     <main className="min-h-dvh bg-slate-50 dark:bg-slate-950">
@@ -92,6 +93,16 @@ export default async function Dashboard({
           </div>
         )}
 
+        {needsReconnect.length > 0 && (
+          <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-300">
+            {needsReconnect.length === 1
+              ? "1 account needs reconnecting"
+              : `${needsReconnect.length} accounts need reconnecting`}{" "}
+            — Google access expired or was revoked. Look for the amber
+            &quot;Reconnect&quot; button below.
+          </div>
+        )}
+
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
             Connected accounts
@@ -118,28 +129,50 @@ export default async function Dashboard({
               return (
                 <li
                   key={a.id}
-                  className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"
+                  className={`rounded-xl border p-4 ${
+                    a.status !== "active"
+                      ? "border-amber-300 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30"
+                      : "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
+                  }`}
                 >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">
-                      {a.googleEmail}
-                    </p>
-                    <div className="mt-1.5 flex flex-wrap gap-1.5">
-                      <TierBadge service="gmail" tier={s.gmail} />
-                      <TierBadge service="calendar" tier={s.calendar} />
-                      <TierBadge service="drive" tier={s.drive} />
-                      <TierBadge service="chat" tier={s.chat} />
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">
+                        {a.googleEmail}
+                      </p>
+                      <div className="mt-1.5 flex flex-wrap gap-1.5">
+                        <TierBadge service="gmail" tier={s.gmail} />
+                        <TierBadge service="calendar" tier={s.calendar} />
+                        <TierBadge service="drive" tier={s.drive} />
+                        <TierBadge service="chat" tier={s.chat} />
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      {a.status !== "active" && (
+                        <Link
+                          href={`/api/connect/google/start?reconnect=${a.id}`}
+                          className="whitespace-nowrap rounded-lg bg-amber-600 px-3 py-1.5 text-sm font-medium text-white transition hover:opacity-90"
+                        >
+                          Reconnect
+                        </Link>
+                      )}
+                      <form action={disconnectAccount}>
+                        <input type="hidden" name="id" value={a.id} />
+                        <button
+                          type="submit"
+                          className="whitespace-nowrap rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-600 transition hover:border-red-300 hover:bg-red-50 hover:text-red-700 dark:border-slate-700 dark:text-slate-400 dark:hover:border-red-900 dark:hover:bg-red-950/40 dark:hover:text-red-400"
+                        >
+                          Disconnect
+                        </button>
+                      </form>
                     </div>
                   </div>
-                  <form action={disconnectAccount}>
-                    <input type="hidden" name="id" value={a.id} />
-                    <button
-                      type="submit"
-                      className="whitespace-nowrap rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-600 transition hover:border-red-300 hover:bg-red-50 hover:text-red-700 dark:border-slate-700 dark:text-slate-400 dark:hover:border-red-900 dark:hover:bg-red-950/40 dark:hover:text-red-400"
-                    >
-                      Disconnect
-                    </button>
-                  </form>
+                  {a.status !== "active" && (
+                    <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
+                      Google access expired or was revoked — click Reconnect
+                      and sign in again to fix it. No settings to reconfigure.
+                    </p>
+                  )}
                 </li>
               );
             })}

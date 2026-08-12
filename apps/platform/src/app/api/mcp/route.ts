@@ -10,7 +10,7 @@ import {
 } from "@multigoogle/core";
 import { prisma } from "@/lib/prisma";
 import { hashApiKey } from "@/lib/apiKeys";
-import { resolverForGrants, type GrantEntry } from "@/lib/toolRunner";
+import { resolverForGrants, isInvalidGrantError, type GrantEntry } from "@/lib/toolRunner";
 
 const PROTOCOL_VERSION = "2025-06-18";
 const IMPLEMENTED = new Set<string>(IMPLEMENTED_TOOLS);
@@ -80,6 +80,7 @@ async function authenticate(req: NextRequest): Promise<AgentContext | null> {
       chat: g.chat as AccountPermissions["chat"],
     };
     grantsByEmail.set(g.account.googleEmail, {
+      connectedAccountId: g.account.id,
       refreshTokenEnc: g.account.refreshTokenEnc,
       permissions,
     });
@@ -183,6 +184,23 @@ async function handleMessage(
         return rpcResult(msg.id, { content: [{ type: "text", text }] });
       } catch (e) {
         logCall(ctx, name, email, "error");
+        if (isInvalidGrantError(e)) {
+          const connectedAccountId = ctx.grantsByEmail.get(email!)?.connectedAccountId;
+          if (connectedAccountId) {
+            prisma.connectedAccount
+              .update({ where: { id: connectedAccountId }, data: { status: "error" } })
+              .catch(() => {});
+          }
+          return rpcResult(msg.id, {
+            content: [
+              {
+                type: "text",
+                text: `Error: Google's access to ${email} has expired or been revoked. Ask the account owner to reconnect it from the dashboard.`,
+              },
+            ],
+            isError: true,
+          });
+        }
         return rpcResult(msg.id, {
           content: [
             { type: "text", text: `Error: ${e instanceof Error ? e.message : String(e)}` },

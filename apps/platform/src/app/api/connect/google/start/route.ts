@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "node:crypto";
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import {
   buildConnectScopes,
   coerceGmailTier,
   coerceServiceTier,
+  summarizeScopes,
 } from "@/lib/googleScopes";
 import { publicOrigin } from "@/lib/publicUrl";
 
@@ -18,12 +20,25 @@ export async function GET(req: NextRequest) {
   }
 
   const sp = req.nextUrl.searchParams;
-  const scopes = buildConnectScopes({
+
+  // Reconnecting an existing (expired/revoked) account: reuse its exact
+  // prior tiers rather than asking the user to re-pick them. The callback
+  // upserts on the same googleSub, so this refreshes that same row.
+  const reconnectId = sp.get("reconnect");
+  let tiers = {
     gmail: coerceGmailTier(sp.get("gmail")),
     calendar: coerceServiceTier(sp.get("calendar")),
     drive: coerceServiceTier(sp.get("drive")),
     chat: coerceServiceTier(sp.get("chat")),
-  });
+  };
+  if (reconnectId) {
+    const account = await prisma.connectedAccount.findFirst({
+      where: { id: reconnectId, userId: session.user.id },
+    });
+    if (account) tiers = summarizeScopes(account.grantedScopes);
+  }
+
+  const scopes = buildConnectScopes(tiers);
 
   const state = crypto.randomBytes(16).toString("hex");
   const redirectUri = new URL(
