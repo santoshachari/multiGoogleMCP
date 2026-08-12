@@ -39,7 +39,14 @@ function TierBadge({ service, tier }: { service: string; tier: string }) {
 const TESTING_TOKEN_LIFETIME_DAYS = 7;
 
 function formatDate(d: Date): string {
-  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  return d.toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" });
+}
+
+function daysRemaining(expiresAt: Date): number {
+  return Math.max(
+    0,
+    Math.ceil((expiresAt.getTime() - Date.now()) / (24 * 60 * 60 * 1000)),
+  );
 }
 
 export default async function Dashboard({
@@ -163,7 +170,10 @@ export default async function Dashboard({
                       <p className="mt-1.5 text-xs text-slate-400 dark:text-slate-500">
                         {a.status !== "active"
                           ? "Expired — reconnect to continue using it"
-                          : `Expected to need reconnecting around ${formatDate(expiresAt)}`}
+                          : (() => {
+                              const days = daysRemaining(expiresAt);
+                              return `Expected to need reconnecting in ${days} ${days === 1 ? "day" : "days"} (${formatDate(expiresAt)})`;
+                            })()}
                       </p>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
