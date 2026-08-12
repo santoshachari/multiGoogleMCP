@@ -64,12 +64,14 @@ export async function GET(req: NextRequest) {
         refreshTokenEnc: encryptSecret(tokens.refresh_token),
         grantedScopes: tokens.scope ?? "",
         status: "active",
+        connectedAt: new Date(),
       },
       update: {
         googleEmail,
         refreshTokenEnc: encryptSecret(tokens.refresh_token),
         grantedScopes: tokens.scope ?? "",
         status: "active",
+        connectedAt: new Date(),
       },
     });
 

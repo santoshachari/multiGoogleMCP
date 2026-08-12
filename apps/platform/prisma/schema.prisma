@@ -89,6 +89,7 @@ model ConnectedAccount {
   refreshTokenEnc String   @db.Text // AES-256-GCM ciphertext, never plaintext
   grantedScopes   String   @db.Text // space-delimited scope list
   status          String   @default("active") // active | revoked | error
+  connectedAt     DateTime @default(now()) // when the token was last (re)issued by Google — NOT bumped by status flips, unlike updatedAt
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

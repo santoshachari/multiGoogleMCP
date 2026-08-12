@@ -32,6 +32,16 @@ function TierBadge({ service, tier }: { service: string; tier: string }) {
   );
 }
 
+// This OAuth app is in Google's "Testing" publishing status, which caps every
+// refresh token at exactly 7 days regardless of use. If it's ever published
+// to Production, this estimate (and the whole reconnect-reminder flow) stops
+// being necessary — update/remove this once that happens.
+const TESTING_TOKEN_LIFETIME_DAYS = 7;
+
+function formatDate(d: Date): string {
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
 export default async function Dashboard({
   searchParams,
 }: {
@@ -126,6 +136,10 @@ export default async function Dashboard({
           <ul className="mt-4 space-y-3">
             {accounts.map((a) => {
               const s = summarizeScopes(a.grantedScopes);
+              const expiresAt = new Date(
+                a.connectedAt.getTime() +
+                  TESTING_TOKEN_LIFETIME_DAYS * 24 * 60 * 60 * 1000,
+              );
               return (
                 <li
                   key={a.id}
@@ -146,6 +160,11 @@ export default async function Dashboard({
                         <TierBadge service="drive" tier={s.drive} />
                         <TierBadge service="chat" tier={s.chat} />
                       </div>
+                      <p className="mt-1.5 text-xs text-slate-400 dark:text-slate-500">
+                        {a.status !== "active"
+                          ? "Expired — reconnect to continue using it"
+                          : `Expected to need reconnecting around ${formatDate(expiresAt)}`}
+                      </p>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
                       {a.status !== "active" && (

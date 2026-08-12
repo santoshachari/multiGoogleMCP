@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "ConnectedAccount" ADD COLUMN     "connectedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;
