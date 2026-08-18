@@ -49,6 +49,7 @@ export async function searchEmails(
         const messageId =
           headers.find((h) => h.name === "Message-ID")?.value || "";
 
+        const labelIds = details.data.labelIds || [];
         return {
           id: msg.id,
           threadId: details.data.threadId,
@@ -59,6 +60,9 @@ export async function searchEmails(
           to,
           cc: cc || undefined,
           date,
+          unread: labelIds.includes("UNREAD"),
+          starred: labelIds.includes("STARRED"),
+          labelIds,
         };
       } catch {
         return null;
@@ -166,6 +170,7 @@ export async function readEmail(email: string, messageId: string) {
   const references =
     headers.find((h) => h.name === "References")?.value || "";
   const threadId = response.data.threadId || "";
+  const labelIds = response.data.labelIds || [];
 
   return JSON.stringify(
     {
@@ -182,6 +187,9 @@ export async function readEmail(email: string, messageId: string) {
       subject,
       messageId: rfcMessageId,
       threadId,
+      unread: labelIds.includes("UNREAD"),
+      starred: labelIds.includes("STARRED"),
+      labelIds,
       references,
       body: textContent,
       attachments,
@@ -241,6 +249,7 @@ export async function readThread(email: string, threadId: string) {
     }> = [];
     collectAttachments(payload, attachments);
 
+    const labelIds = msg.labelIds || [];
     return {
       id: msg.id,
       threadId: msg.threadId,
@@ -250,6 +259,9 @@ export async function readThread(email: string, threadId: string) {
       date: headers.find((h) => h.name === "Date")?.value || "",
       subject: headers.find((h) => h.name === "Subject")?.value || "",
       messageId: headers.find((h) => h.name === "Message-ID")?.value || "",
+      unread: labelIds.includes("UNREAD"),
+      starred: labelIds.includes("STARRED"),
+      labelIds,
       body: extractText(payload) || msg.snippet || "",
       attachments,
     };
