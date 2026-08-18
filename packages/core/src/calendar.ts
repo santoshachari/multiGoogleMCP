@@ -48,7 +48,18 @@ export async function calendarListEvents(
       email: a.email,
       name: a.displayName,
       status: a.responseStatus,
+      optional: a.optional || undefined,
     })),
+    organizer: e.organizer
+      ? { email: e.organizer.email, name: e.organizer.displayName, self: e.organizer.self || undefined }
+      : undefined,
+    // "opaque" (the default) blocks the calendar; "transparent" means the
+    // event doesn't show as busy — useful for telling a real meeting from an
+    // FYI/reminder entry without opening it.
+    transparency: e.transparency,
+    meetLink:
+      e.hangoutLink ||
+      e.conferenceData?.entryPoints?.find((ep) => ep.entryPointType === "video")?.uri,
     status: e.status,
     htmlLink: e.htmlLink,
     // Present only on instances of a repeating event — this is the id of the
@@ -84,9 +95,16 @@ export async function calendarGetEvent(
         email: a.email,
         name: a.displayName,
         status: a.responseStatus,
+        optional: a.optional || undefined,
+        organizer: a.organizer || undefined,
+        self: a.self || undefined,
       })),
       organizer: e.organizer,
       status: e.status,
+      // "opaque" (the default) blocks the calendar; "transparent" means the
+      // event doesn't show as busy.
+      transparency: e.transparency,
+      visibility: e.visibility,
       htmlLink: e.htmlLink,
       meetLink:
         e.hangoutLink ||

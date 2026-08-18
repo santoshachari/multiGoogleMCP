@@ -15,7 +15,7 @@ export async function driveListFiles(
     pageSize: maxResults,
     pageToken,
     fields:
-      "nextPageToken, files(id,name,mimeType,size,modifiedTime,webViewLink,parents)",
+      "nextPageToken, files(id,name,mimeType,size,modifiedTime,webViewLink,parents,owners,shared)",
   });
   const files = (response.data.files || []).map((f) => ({
     id: f.id,
@@ -24,6 +24,9 @@ export async function driveListFiles(
     size: f.size,
     modifiedTime: f.modifiedTime,
     webViewLink: f.webViewLink,
+    parents: f.parents,
+    owners: (f.owners || []).map((o) => ({ email: o.emailAddress, name: o.displayName })),
+    shared: f.shared,
   }));
   return JSON.stringify(
     { files, nextPageToken: response.data.nextPageToken || null },
@@ -45,7 +48,7 @@ export async function driveSearchFiles(
     pageSize: maxResults,
     pageToken,
     fields:
-      "nextPageToken, files(id,name,mimeType,size,modifiedTime,webViewLink,parents)",
+      "nextPageToken, files(id,name,mimeType,size,modifiedTime,webViewLink,parents,owners,shared)",
   });
   const files = (response.data.files || []).map((f) => ({
     id: f.id,
@@ -54,6 +57,9 @@ export async function driveSearchFiles(
     size: f.size,
     modifiedTime: f.modifiedTime,
     webViewLink: f.webViewLink,
+    parents: f.parents,
+    owners: (f.owners || []).map((o) => ({ email: o.emailAddress, name: o.displayName })),
+    shared: f.shared,
   }));
   return JSON.stringify(
     { files, nextPageToken: response.data.nextPageToken || null },
@@ -68,7 +74,7 @@ export async function driveGetFile(email: string, fileId: string) {
   const response = await drive.files.get({
     fileId,
     fields:
-      "id,name,mimeType,size,modifiedTime,createdTime,webViewLink,parents,owners,shared,description",
+      "id,name,mimeType,size,modifiedTime,createdTime,webViewLink,webContentLink,parents,owners,shared,description,trashed",
   });
   return JSON.stringify(response.data, null, 2);
 }

@@ -49,6 +49,36 @@ async function resolveChatUsers(
   return map;
 }
 
+// m.text/m.formattedText are empty for messages that are pure card content
+// (very common for bot/app posts — CI notifications, ticketing bots, etc.),
+// which previously surfaced as a silently blank message. Best-effort walk of
+// the card structure for any plain text a reader would actually see.
+function extractCardText(m: any): string {
+  const cards = [...(m.cardsV2 || []), ...(m.cardsV1 ? [{ card: m.cardsV1 }] : [])];
+  if (cards.length === 0) return "";
+
+  const parts: string[] = [];
+  for (const entry of cards) {
+    const card = entry.card || entry;
+    if (card.header?.title) parts.push(card.header.title);
+    if (card.header?.subtitle) parts.push(card.header.subtitle);
+    for (const section of card.sections || []) {
+      for (const widget of section.widgets || []) {
+        if (widget.textParagraph?.text) parts.push(widget.textParagraph.text);
+        if (widget.decoratedText?.text) parts.push(widget.decoratedText.text);
+        if (widget.keyValue?.topLabel || widget.keyValue?.content) {
+          parts.push([widget.keyValue.topLabel, widget.keyValue.content].filter(Boolean).join(": "));
+        }
+      }
+    }
+  }
+  return parts.length > 0 ? parts.join("\n") : "[card message with no extractable text]";
+}
+
+function messageText(m: any): string {
+  return m.text || m.formattedText || extractCardText(m);
+}
+
 function describeChatUser(
   resourceName: string | null | undefined,
   displayName: string | null | undefined,
@@ -79,6 +109,7 @@ export async function chatListSpaces(
     name: s.name,
     displayName: s.displayName || "(Direct Message)",
     type: s.spaceType,
+    threadedMessages: s.spaceThreadingState,
   }));
 
   return JSON.stringify(
@@ -118,12 +149,16 @@ export async function chatListMessages(
     name: m.name,
     threadName: m.thread?.name,
     sender: describeChatUser(m.sender?.name, m.sender?.displayName, resolved),
-    text: m.text || m.formattedText || "",
+    senderType: m.sender?.type || undefined, // "HUMAN" | "BOT"
+    text: messageText(m),
     createTime: m.createTime,
     attachments: (m.attachment || []).map((a) => ({
       resourceName: a.attachmentDataRef?.resourceName,
       contentName: a.contentName,
       contentType: a.contentType,
+      // "DRIVE_FILE" attachments can be fetched via drive_get_file/drive_read_file;
+      // "UPLOADED_CONTENT" only via chat_get_attachment.
+      source: a.source,
     })),
   }));
 
@@ -184,13 +219,15 @@ export async function chatGetMessage(email: string, messageName: string) {
       name: m.name,
       threadName: m.thread?.name,
       sender: describeChatUser(m.sender?.name, m.sender?.displayName, resolved),
-      text: m.text || m.formattedText || "",
+      senderType: m.sender?.type || undefined,
+      text: messageText(m),
       createTime: m.createTime,
       lastUpdateTime: m.lastUpdateTime,
       attachments: (m.attachment || []).map((a) => ({
         resourceName: a.attachmentDataRef?.resourceName,
         contentName: a.contentName,
         contentType: a.contentType,
+        source: a.source,
       })),
     },
     null,

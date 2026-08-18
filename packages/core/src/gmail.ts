@@ -35,7 +35,7 @@ export async function searchEmails(
           userId: "me",
           id: msg.id,
           format: "metadata",
-          metadataHeaders: ["Subject", "From", "Date", "Message-ID"],
+          metadataHeaders: ["Subject", "From", "To", "Cc", "Date", "Message-ID"],
         });
 
         const headers = details.data.payload?.headers || [];
@@ -43,6 +43,8 @@ export async function searchEmails(
           headers.find((h) => h.name === "Subject")?.value || "No Subject";
         const from =
           headers.find((h) => h.name === "From")?.value || "Unknown Sender";
+        const to = headers.find((h) => h.name === "To")?.value || "";
+        const cc = headers.find((h) => h.name === "Cc")?.value || "";
         const date = headers.find((h) => h.name === "Date")?.value || "";
         const messageId =
           headers.find((h) => h.name === "Message-ID")?.value || "";
@@ -54,6 +56,8 @@ export async function searchEmails(
           snippet: details.data.snippet,
           subject,
           from,
+          to,
+          cc: cc || undefined,
           date,
         };
       } catch {
@@ -153,6 +157,9 @@ export async function readEmail(email: string, messageId: string) {
     headers.find((h) => h.name === "From")?.value || "Unknown Sender";
   const to =
     headers.find((h) => h.name === "To")?.value || "Unknown Recipient";
+  const cc = headers.find((h) => h.name === "Cc")?.value || "";
+  const bcc = headers.find((h) => h.name === "Bcc")?.value || "";
+  const replyTo = headers.find((h) => h.name === "Reply-To")?.value || "";
   const date = headers.find((h) => h.name === "Date")?.value || "";
   const rfcMessageId =
     headers.find((h) => h.name === "Message-ID")?.value || "";
@@ -164,6 +171,13 @@ export async function readEmail(email: string, messageId: string) {
     {
       from,
       to,
+      cc: cc || undefined,
+      // Gmail strips Bcc from every stored copy of a message (sender's and
+      // recipients') once it's sent, even the sender's own Sent-folder copy —
+      // it's only ever visible at compose time. This will always be empty for
+      // anything actually sent through Gmail; kept for completeness / drafts.
+      bcc: bcc || undefined,
+      replyTo: replyTo || undefined,
       date,
       subject,
       messageId: rfcMessageId,
@@ -232,6 +246,7 @@ export async function readThread(email: string, threadId: string) {
       threadId: msg.threadId,
       from: headers.find((h) => h.name === "From")?.value || "",
       to: headers.find((h) => h.name === "To")?.value || "",
+      cc: headers.find((h) => h.name === "Cc")?.value || undefined,
       date: headers.find((h) => h.name === "Date")?.value || "",
       subject: headers.find((h) => h.name === "Subject")?.value || "",
       messageId: headers.find((h) => h.name === "Message-ID")?.value || "",
@@ -604,6 +619,7 @@ export async function listDrafts(
           subject:
             headers.find((h) => h.name === "Subject")?.value || "(no subject)",
           to: headers.find((h) => h.name === "To")?.value || "",
+          cc: headers.find((h) => h.name === "Cc")?.value || undefined,
           date: headers.find((h) => h.name === "Date")?.value || "",
         };
       } catch {
