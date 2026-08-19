@@ -6,9 +6,34 @@ import { encryptSecret } from "@/lib/crypto";
 import { publicOrigin } from "@/lib/publicUrl";
 
 function back(req: NextRequest, status: string) {
-  return NextResponse.redirect(
+  const res = NextResponse.redirect(
     new URL(`/dashboard?connect=${status}`, publicOrigin(req)),
   );
+  // Any terminal exit (success-with-nothing-queued, denied, or error) ends a
+  // reconnect-all chain — don't let a cancelled/failed step silently resume
+  // on some unrelated later visit.
+  res.cookies.delete("connect_state");
+  res.cookies.delete("reconnect_queue");
+  return res;
+}
+
+// Reconnect-all continues the chain: pop the next account off the queue
+// cookie and kick off its OAuth flow immediately, instead of landing back on
+// the dashboard between every single account.
+function continueQueue(req: NextRequest): NextResponse | null {
+  const queue = req.cookies.get("reconnect_queue")?.value;
+  if (!queue) return null;
+  const ids = queue.split(",").filter(Boolean);
+  if (ids.length === 0) return null;
+
+  const [nextId, ...rest] = ids;
+  const nextUrl = new URL("/api/connect/google/start", publicOrigin(req));
+  nextUrl.searchParams.set("reconnect", nextId);
+  nextUrl.searchParams.set("queue", rest.join(","));
+  const res = NextResponse.redirect(nextUrl.toString());
+  res.cookies.delete("connect_state");
+  res.cookies.delete("reconnect_queue"); // start route re-sets it from ?queue
+  return res;
 }
 
 export async function GET(req: NextRequest) {
@@ -75,9 +100,9 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    const res = back(req, "ok");
-    res.cookies.delete("connect_state");
-    return res;
+    const next = continueQueue(req);
+    if (next) return next;
+    return back(req, "ok");
   } catch (err) {
     console.error("connect callback failed:", err);
     return back(req, "error");

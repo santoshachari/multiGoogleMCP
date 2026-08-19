@@ -63,5 +63,21 @@ export async function GET(req: NextRequest) {
     maxAge: 600,
     path: "/",
   });
+
+  // "Reconnect all": accounts still queued up after this one. The callback
+  // pops the next id off this cookie and immediately starts its flow instead
+  // of landing back on the dashboard between every single account.
+  const queue = sp.get("queue");
+  if (queue) {
+    res.cookies.set("reconnect_queue", queue, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 600,
+      path: "/",
+    });
+  } else {
+    res.cookies.delete("reconnect_queue");
+  }
   return res;
 }

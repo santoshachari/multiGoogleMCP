@@ -120,16 +120,26 @@ export default async function Dashboard({
           </div>
         )}
 
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <h2 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
             Connected accounts
           </h2>
-          <Link
-            href="/dashboard/connect"
-            className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white transition hover:opacity-90 dark:bg-white dark:text-slate-900"
-          >
-            Connect account
-          </Link>
+          <div className="flex shrink-0 items-center gap-2">
+            {accounts.length > 1 && (
+              <Link
+                href={`/api/connect/google/start?reconnect=${accounts[0].id}&queue=${accounts.slice(1).map((a) => a.id).join(",")}`}
+                className="whitespace-nowrap rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+              >
+                Reconnect all
+              </Link>
+            )}
+            <Link
+              href="/dashboard/connect"
+              className="whitespace-nowrap rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white transition hover:opacity-90 dark:bg-white dark:text-slate-900"
+            >
+              Connect account
+            </Link>
+          </div>
         </div>
 
         {accounts.length === 0 ? (
@@ -177,14 +187,16 @@ export default async function Dashboard({
                       </p>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
-                      {a.status !== "active" && (
-                        <Link
-                          href={`/api/connect/google/start?reconnect=${a.id}`}
-                          className="whitespace-nowrap rounded-lg bg-amber-600 px-3 py-1.5 text-sm font-medium text-white transition hover:opacity-90"
-                        >
-                          Reconnect
-                        </Link>
-                      )}
+                      <Link
+                        href={`/api/connect/google/start?reconnect=${a.id}`}
+                        className={
+                          a.status !== "active"
+                            ? "whitespace-nowrap rounded-lg bg-amber-600 px-3 py-1.5 text-sm font-medium text-white transition hover:opacity-90"
+                            : "whitespace-nowrap rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-600 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"
+                        }
+                      >
+                        Reconnect
+                      </Link>
                       <form action={disconnectAccount}>
                         <input type="hidden" name="id" value={a.id} />
                         <button
