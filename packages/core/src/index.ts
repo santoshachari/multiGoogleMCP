@@ -4,5 +4,7 @@ export * from "./gmail.js";
 export * from "./chat.js";
 export * from "./calendar.js";
 export * from "./drive.js";
+export * from "./sheets.js";
+export * from "./docs.js";
 export * from "./registry.js";
 export * from "./toolRequirements.js";

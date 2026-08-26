@@ -3,6 +3,8 @@ import * as gmail from "./gmail.js";
 import * as chat from "./chat.js";
 import * as calendar from "./calendar.js";
 import * as drive from "./drive.js";
+import * as sheets from "./sheets.js";
+import * as docs from "./docs.js";
 
 type Args = Record<string, unknown>;
 
@@ -11,6 +13,9 @@ const num = (v: unknown): v is number => typeof v === "number";
 const bool = (v: unknown): v is boolean => typeof v === "boolean";
 const strArray = (v: unknown): v is string[] =>
   Array.isArray(v) && v.every((x) => typeof x === "string");
+// A sheet range's values: rows of cells, each cell a primitive JSON value.
+const cellRows = (v: unknown): v is unknown[][] =>
+  Array.isArray(v) && v.every((row) => Array.isArray(row));
 
 // Every tool this core implements (the local server's tokens.json-only
 // gmail_list_accounts is intentionally excluded).
@@ -72,15 +77,33 @@ export const IMPLEMENTED_TOOLS = [
   "drive_delete_file",
   "drive_share_file",
   "drive_move_file",
+  // Sheets
+  "sheets_list_tabs",
+  "sheets_read_range",
+  "sheets_update_range",
+  "sheets_append_rows",
+  "sheets_clear_range",
+  // Docs
+  "docs_get_content",
+  "docs_append_text",
+  "docs_insert_text",
+  "docs_replace_text",
 ] as const;
 
 // Which service a tool belongs to — used by hosts to filter the advertised
 // toolset to the services an agent actually has access to.
 export function toolService(
   name: string,
-): "gmail" | "chat" | "calendar" | "drive" | null {
+): "gmail" | "chat" | "calendar" | "drive" | "sheets" | "docs" | null {
   const prefix = name.split("_")[0];
-  if (prefix === "gmail" || prefix === "chat" || prefix === "calendar" || prefix === "drive") {
+  if (
+    prefix === "gmail" ||
+    prefix === "chat" ||
+    prefix === "calendar" ||
+    prefix === "drive" ||
+    prefix === "sheets" ||
+    prefix === "docs"
+  ) {
     return prefix;
   }
   return null;
@@ -515,6 +538,87 @@ async function dispatch(name: string, args: Args): Promise<string> {
       if (!str(args.email) || !str(args.fileId) || !str(args.newParentFolderId))
         throw new Error("Missing or invalid arguments for drive_move_file.");
       return drive.driveMoveFile(args.email, args.fileId, args.newParentFolderId);
+
+    // ---- Sheets ----
+    case "sheets_list_tabs":
+      if (!str(args.email) || !str(args.spreadsheetId))
+        throw new Error("Missing or invalid arguments for sheets_list_tabs.");
+      return sheets.sheetsListTabs(args.email, args.spreadsheetId);
+    case "sheets_read_range":
+      if (!str(args.email) || !str(args.spreadsheetId) || !str(args.range))
+        throw new Error("Missing or invalid arguments for sheets_read_range.");
+      return sheets.sheetsReadRange(args.email, args.spreadsheetId, args.range);
+    case "sheets_update_range":
+      if (
+        !str(args.email) ||
+        !str(args.spreadsheetId) ||
+        !str(args.range) ||
+        !cellRows(args.values)
+      )
+        throw new Error("Missing or invalid arguments for sheets_update_range.");
+      return sheets.sheetsUpdateRange(
+        args.email,
+        args.spreadsheetId,
+        args.range,
+        args.values,
+      );
+    case "sheets_append_rows":
+      if (
+        !str(args.email) ||
+        !str(args.spreadsheetId) ||
+        !str(args.range) ||
+        !cellRows(args.values)
+      )
+        throw new Error("Missing or invalid arguments for sheets_append_rows.");
+      return sheets.sheetsAppendRows(
+        args.email,
+        args.spreadsheetId,
+        args.range,
+        args.values,
+      );
+    case "sheets_clear_range":
+      if (!str(args.email) || !str(args.spreadsheetId) || !str(args.range))
+        throw new Error("Missing or invalid arguments for sheets_clear_range.");
+      return sheets.sheetsClearRange(args.email, args.spreadsheetId, args.range);
+
+    // ---- Docs ----
+    case "docs_get_content":
+      if (!str(args.email) || !str(args.documentId))
+        throw new Error("Missing or invalid arguments for docs_get_content.");
+      return docs.docsGetContent(args.email, args.documentId);
+    case "docs_append_text":
+      if (!str(args.email) || !str(args.documentId) || !str(args.text))
+        throw new Error("Missing or invalid arguments for docs_append_text.");
+      return docs.docsAppendText(args.email, args.documentId, args.text);
+    case "docs_insert_text":
+      if (
+        !str(args.email) ||
+        !str(args.documentId) ||
+        !str(args.text) ||
+        !num(args.index)
+      )
+        throw new Error("Missing or invalid arguments for docs_insert_text.");
+      return docs.docsInsertText(
+        args.email,
+        args.documentId,
+        args.text,
+        args.index,
+      );
+    case "docs_replace_text":
+      if (
+        !str(args.email) ||
+        !str(args.documentId) ||
+        !str(args.findText) ||
+        !str(args.replaceText)
+      )
+        throw new Error("Missing or invalid arguments for docs_replace_text.");
+      return docs.docsReplaceText(
+        args.email,
+        args.documentId,
+        args.findText,
+        args.replaceText,
+        bool(args.matchCase) ? args.matchCase : undefined,
+      );
 
     default:
       throw new Error(`Unknown or unimplemented tool: ${name}`);

@@ -41,6 +41,8 @@ export async function createAgent(formData: FormData) {
           calendar: ceiling.calendar,
           drive: ceiling.drive,
           chat: ceiling.chat,
+          sheets: ceiling.sheets,
+          docs: ceiling.docs,
         };
       }),
     });
@@ -87,11 +89,19 @@ export async function saveGrant(formData: FormData) {
     String(formData.get("chat") ?? "none") as ServiceTier,
     ceiling.chat,
   );
+  const sheets = clampService(
+    String(formData.get("sheets") ?? "none") as ServiceTier,
+    ceiling.sheets,
+  );
+  const docs = clampService(
+    String(formData.get("docs") ?? "none") as ServiceTier,
+    ceiling.docs,
+  );
 
   await prisma.agentGrant.upsert({
     where: { agentId_connectedAccountId: { agentId, connectedAccountId } },
-    create: { agentId, connectedAccountId, gmail, calendar, drive, chat },
-    update: { gmail, calendar, drive, chat },
+    create: { agentId, connectedAccountId, gmail, calendar, drive, chat, sheets, docs },
+    update: { gmail, calendar, drive, chat, sheets, docs },
   });
 
   revalidatePath(`/dashboard/agents/${agentId}`);

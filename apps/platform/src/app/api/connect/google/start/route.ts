@@ -30,6 +30,8 @@ export async function GET(req: NextRequest) {
     calendar: coerceServiceTier(sp.get("calendar")),
     drive: coerceServiceTier(sp.get("drive")),
     chat: coerceServiceTier(sp.get("chat")),
+    sheets: coerceServiceTier(sp.get("sheets")),
+    docs: coerceServiceTier(sp.get("docs")),
   };
   if (reconnectId) {
     const account = await prisma.connectedAccount.findFirst({

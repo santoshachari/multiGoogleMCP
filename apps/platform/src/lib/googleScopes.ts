@@ -11,6 +11,8 @@ export interface TierSelection {
   calendar: ServiceTier;
   drive: ServiceTier;
   chat: ServiceTier;
+  sheets: ServiceTier;
+  docs: ServiceTier;
 }
 
 // Always requested, so we can identify the account (email + stable subject id).
@@ -68,12 +70,26 @@ const CHAT_SCOPES: Record<ServiceTier, string[]> = {
   ],
 };
 
+const SHEETS_SCOPES: Record<ServiceTier, string[]> = {
+  none: [],
+  readonly: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
+  full: ["https://www.googleapis.com/auth/spreadsheets"],
+};
+
+const DOCS_SCOPES: Record<ServiceTier, string[]> = {
+  none: [],
+  readonly: ["https://www.googleapis.com/auth/documents.readonly"],
+  full: ["https://www.googleapis.com/auth/documents"],
+};
+
 export function buildConnectScopes(sel: TierSelection): string[] {
   const scopes = new Set<string>(BASE_SCOPES);
   for (const s of GMAIL_SCOPES[sel.gmail]) scopes.add(s);
   for (const s of CALENDAR_SCOPES[sel.calendar]) scopes.add(s);
   for (const s of DRIVE_SCOPES[sel.drive]) scopes.add(s);
   for (const s of CHAT_SCOPES[sel.chat]) scopes.add(s);
+  for (const s of SHEETS_SCOPES[sel.sheets]) scopes.add(s);
+  for (const s of DOCS_SCOPES[sel.docs]) scopes.add(s);
   return [...scopes];
 }
 
@@ -85,6 +101,8 @@ export interface ScopeSummary {
   calendar: ServiceTier;
   drive: ServiceTier;
   chat: ServiceTier;
+  sheets: ServiceTier;
+  docs: ServiceTier;
 }
 
 export function summarizeScopes(granted: string): ScopeSummary {
@@ -118,7 +136,19 @@ export function summarizeScopes(granted: string): ScopeSummary {
       ? "readonly"
       : "none";
 
-  return { gmail, calendar, drive, chat };
+  const sheets: ServiceTier = has("spreadsheets")
+    ? "full"
+    : has("spreadsheets.readonly")
+      ? "readonly"
+      : "none";
+
+  const docs: ServiceTier = has("documents")
+    ? "full"
+    : has("documents.readonly")
+      ? "readonly"
+      : "none";
+
+  return { gmail, calendar, drive, chat, sheets, docs };
 }
 
 export function coerceGmailTier(v: string | null): GmailTier {

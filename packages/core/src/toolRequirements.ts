@@ -54,6 +54,14 @@ export const TOOL_REQUIREMENTS: Record<string, string> = {
   chat_add_member: "full",
   chat_remove_member: "full",
   chat_upload_attachment: "full",
+
+  sheets_update_range: "full",
+  sheets_append_rows: "full",
+  sheets_clear_range: "full",
+
+  docs_append_text: "full",
+  docs_insert_text: "full",
+  docs_replace_text: "full",
 };
 
 function requiredLevel(toolName: string): string {
@@ -95,5 +103,7 @@ export function describePermissions(permissions: AccountPermissions): string {
     `calendar: ${permissions.calendar}`,
     `drive: ${permissions.drive}`,
     `chat: ${permissions.chat}`,
+    `sheets: ${permissions.sheets}`,
+    `docs: ${permissions.docs}`,
   ].join(" · ");
 }

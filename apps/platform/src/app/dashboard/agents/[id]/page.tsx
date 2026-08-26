@@ -173,6 +173,16 @@ export default async function AgentDetail({
                           options={allowedServiceTiers(ceiling.chat)}
                           value={grant?.chat ?? "none"}
                         />
+                        <TierSelect
+                          name="sheets"
+                          options={allowedServiceTiers(ceiling.sheets)}
+                          value={grant?.sheets ?? "none"}
+                        />
+                        <TierSelect
+                          name="docs"
+                          options={allowedServiceTiers(ceiling.docs)}
+                          value={grant?.docs ?? "none"}
+                        />
                         <div className="flex items-end">
                           <button
                             type="submit"

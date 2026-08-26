@@ -10,6 +10,8 @@ export interface AccountPermissions {
   calendar: ServicePermission;
   drive: ServicePermission;
   chat: ServicePermission;
+  sheets: ServicePermission;
+  docs: ServicePermission;
 }
 
 // What a tool needs to act on one Google account: an authorized client plus the
@@ -105,6 +107,28 @@ export function assertChatCanSend(
   if (permissions.chat !== "full") {
     throw new Error(
       `Cannot send Chat messages from ${email}: Chat permission is '${permissions.chat}' (requires 'full').`,
+    );
+  }
+}
+
+export function assertSheetsCanWrite(
+  permissions: AccountPermissions,
+  email: string,
+) {
+  if (permissions.sheets !== "full") {
+    throw new Error(
+      `Cannot modify Sheets from ${email}: Sheets permission is '${permissions.sheets}' (requires 'full').`,
+    );
+  }
+}
+
+export function assertDocsCanWrite(
+  permissions: AccountPermissions,
+  email: string,
+) {
+  if (permissions.docs !== "full") {
+    throw new Error(
+      `Cannot modify Docs from ${email}: Docs permission is '${permissions.docs}' (requires 'full').`,
     );
   }
 }

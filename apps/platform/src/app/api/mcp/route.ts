@@ -78,6 +78,8 @@ async function authenticate(req: NextRequest): Promise<AgentContext | null> {
       calendar: g.calendar as AccountPermissions["calendar"],
       drive: g.drive as AccountPermissions["drive"],
       chat: g.chat as AccountPermissions["chat"],
+      sheets: g.sheets as AccountPermissions["sheets"],
+      docs: g.docs as AccountPermissions["docs"],
     };
     grantsByEmail.set(g.account.googleEmail, {
       connectedAccountId: g.account.id,

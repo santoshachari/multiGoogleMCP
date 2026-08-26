@@ -123,6 +123,8 @@ model AgentGrant {
   calendar           String @default("none")
   drive              String @default("none")
   chat               String @default("none")
+  sheets             String @default("none")
+  docs               String @default("none")
 
   agent   Agent            @relation(fields: [agentId], references: [id], onDelete: Cascade)
   account ConnectedAccount @relation(fields: [connectedAccountId], references: [id], onDelete: Cascade)

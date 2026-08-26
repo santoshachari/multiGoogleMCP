@@ -176,6 +176,8 @@ export default async function Dashboard({
                         <TierBadge service="calendar" tier={s.calendar} />
                         <TierBadge service="drive" tier={s.drive} />
                         <TierBadge service="chat" tier={s.chat} />
+                        <TierBadge service="sheets" tier={s.sheets} />
+                        <TierBadge service="docs" tier={s.docs} />
                       </div>
                       <p className="mt-1.5 text-xs text-slate-400 dark:text-slate-500">
                         {a.status !== "active"

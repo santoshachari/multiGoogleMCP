@@ -103,6 +103,20 @@ export default async function ConnectPage() {
             options={SERVICE_OPTIONS}
             defaultValue="none"
           />
+          <Field
+            name="sheets"
+            label="Sheets"
+            hint="readonly · full (edit cells / append rows)"
+            options={SERVICE_OPTIONS}
+            defaultValue="none"
+          />
+          <Field
+            name="docs"
+            label="Docs"
+            hint="readonly · full (edit / insert text)"
+            options={SERVICE_OPTIONS}
+            defaultValue="none"
+          />
 
           <button
             type="submit"

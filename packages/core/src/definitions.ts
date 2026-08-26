@@ -966,5 +966,133 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
             },
             required: ["email", "fileId", "newParentFolderId"]
         }
+    },
+    {
+        name: "sheets_list_tabs",
+        description: "List the tabs (sheets) inside a Google Sheets spreadsheet, with their titles and dimensions.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The authenticated Google account." },
+                spreadsheetId: { type: "string", description: "The spreadsheet ID (from its URL or drive_search_files)." }
+            },
+            required: ["email", "spreadsheetId"]
+        }
+    },
+    {
+        name: "sheets_read_range",
+        description: "Read cell values from a range in a Google Sheets spreadsheet.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The authenticated Google account." },
+                spreadsheetId: { type: "string", description: "The spreadsheet ID." },
+                range: { type: "string", description: "A1 notation range, e.g. 'Sheet1!A1:D20' or just 'Sheet1' for the whole tab." }
+            },
+            required: ["email", "spreadsheetId", "range"]
+        }
+    },
+    {
+        name: "sheets_update_range",
+        description: "Overwrite cell values in a range of a Google Sheets spreadsheet. Existing cells outside the given range are untouched.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The authenticated Google account." },
+                spreadsheetId: { type: "string", description: "The spreadsheet ID." },
+                range: { type: "string", description: "A1 notation range to write, e.g. 'Sheet1!A1:C3'. Must match the shape of `values`." },
+                values: {
+                    type: "array",
+                    description: "Rows of cell values, e.g. [[\"Name\",\"Total\"],[\"Alice\",42]]. Values are parsed like manual entry (formulas, numbers, dates).",
+                    items: { type: "array", items: {} }
+                }
+            },
+            required: ["email", "spreadsheetId", "range", "values"]
+        }
+    },
+    {
+        name: "sheets_append_rows",
+        description: "Append rows after the last row of data in a table within a Google Sheets spreadsheet, without overwriting existing rows.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The authenticated Google account." },
+                spreadsheetId: { type: "string", description: "The spreadsheet ID." },
+                range: { type: "string", description: "A1 notation range identifying the table to append after, e.g. 'Sheet1' or 'Sheet1!A:D'." },
+                values: {
+                    type: "array",
+                    description: "Rows to append, e.g. [[\"Bob\",17]].",
+                    items: { type: "array", items: {} }
+                }
+            },
+            required: ["email", "spreadsheetId", "range", "values"]
+        }
+    },
+    {
+        name: "sheets_clear_range",
+        description: "Clear cell values (not formatting) from a range in a Google Sheets spreadsheet.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The authenticated Google account." },
+                spreadsheetId: { type: "string", description: "The spreadsheet ID." },
+                range: { type: "string", description: "A1 notation range to clear, e.g. 'Sheet1!A2:D100'." }
+            },
+            required: ["email", "spreadsheetId", "range"]
+        }
+    },
+    {
+        name: "docs_get_content",
+        description: "Read the plain-text content of a Google Doc.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The authenticated Google account." },
+                documentId: { type: "string", description: "The document ID (from its URL or drive_search_files)." }
+            },
+            required: ["email", "documentId"]
+        }
+    },
+    {
+        name: "docs_append_text",
+        description: "Append plain text to the end of a Google Doc.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The authenticated Google account." },
+                documentId: { type: "string", description: "The document ID." },
+                text: { type: "string", description: "The text to append." }
+            },
+            required: ["email", "documentId", "text"]
+        }
+    },
+    {
+        name: "docs_insert_text",
+        description: "Insert plain text at a specific character index in a Google Doc. Use docs_get_content first to find a position, or docs_append_text to just add to the end.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The authenticated Google account." },
+                documentId: { type: "string", description: "The document ID." },
+                text: { type: "string", description: "The text to insert." },
+                index: { type: "number", description: "Character index to insert at (1 is the very start of the document body)." }
+            },
+            required: ["email", "documentId", "text", "index"]
+        }
+    },
+    {
+        name: "docs_replace_text",
+        description: "Find and replace all occurrences of a text string in a Google Doc.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The authenticated Google account." },
+                documentId: { type: "string", description: "The document ID." },
+                findText: { type: "string", description: "The text to search for." },
+                replaceText: { type: "string", description: "The text to replace it with." },
+                matchCase: { type: "boolean", description: "Whether the search is case-sensitive (default: false)." }
+            },
+            required: ["email", "documentId", "findText", "replaceText"]
+        }
     }
 ];
