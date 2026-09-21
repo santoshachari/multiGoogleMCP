@@ -294,7 +294,8 @@ export async function createRawEmail(opts: {
 
   if (format === "markdown") {
     bodyMimeType = "text/html";
-    emailBody = await marked.parse(opts.body);
+    const rendered = await marked.parse(opts.body, { breaks: true, gfm: true });
+    emailBody = `<div style="max-width:100%; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; font-size:15px; line-height:1.6; color:#1a1a1a; background-color:#ffffff;">\n${rendered}\n</div>`;
   } else if (format === "html") {
     bodyMimeType = "text/html";
     emailBody = opts.body;
