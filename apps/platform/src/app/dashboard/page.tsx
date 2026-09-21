@@ -60,6 +60,8 @@ export default async function Dashboard({
   const { connect } = await searchParams;
   const banner = connect ? BANNERS[connect] : undefined;
 
+  const me = await prisma.user.findUnique({ where: { id: session.user.id } });
+
   const accounts = await prisma.connectedAccount.findMany({
     where: { userId: session.user.id },
     orderBy: { createdAt: "desc" },
@@ -81,19 +83,29 @@ export default async function Dashboard({
               </span>
             </p>
           </div>
-          <form
-            action={async () => {
-              "use server";
-              await signOut({ redirectTo: "/" });
-            }}
-          >
-            <button
-              type="submit"
-              className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+          <div className="flex items-center gap-2">
+            {me?.isAdmin && (
+              <Link
+                href="/dashboard/admin"
+                className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+              >
+                User management
+              </Link>
+            )}
+            <form
+              action={async () => {
+                "use server";
+                await signOut({ redirectTo: "/" });
+              }}
             >
-              Sign out
-            </button>
-          </form>
+              <button
+                type="submit"
+                className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+              >
+                Sign out
+              </button>
+            </form>
+          </div>
         </div>
       </header>
 
