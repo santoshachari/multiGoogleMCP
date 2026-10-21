@@ -865,7 +865,10 @@ const TOOLS: Tool[] = [
                 description: { type: "string", description: "New description." },
                 location: { type: "string", description: "New location." },
                 attendees: { type: "string", description: "Comma-separated list of attendee email addresses (replaces existing)." },
-                timeZone: { type: "string", description: "Timezone for the event." }
+                timeZone: { type: "string", description: "Timezone for the event." },
+                addGoogleMeet: { type: "boolean", description: "If true, creates a new Google Meet room owned by this account and attaches it, replacing any Meet already on the event. The 'Join with Google Meet' button then points at the new room." },
+                meetLink: { type: "string", description: "Attach an existing Meet room instead, e.g. one owned by another account: a https://meet.google.com/abc-defg-hij URL or just the abc-defg-hij code. Replaces any Meet already on the event. Cannot be combined with addGoogleMeet." },
+                sendUpdates: { type: "string", enum: ["all", "externalOnly", "none"], description: "Who Google emails about this change. Defaults to 'none', so editing an event never emails guests unless you ask." }
             },
             required: ["email", "calendarId", "eventId"]
         }
@@ -2028,8 +2031,20 @@ async function calendarUpdateEvent(
     description?: string,
     location?: string,
     attendees?: string,
-    timeZone?: string
+    timeZone?: string,
+    addGoogleMeet?: boolean,
+    meetLink?: string,
+    sendUpdates?: 'all' | 'externalOnly' | 'none'
 ) {
+    if (addGoogleMeet && meetLink) throw new Error("Pass addGoogleMeet or meetLink, not both.");
+    let meetCode: string | undefined;
+    if (meetLink) {
+        meetCode = meetLink.trim().replace(/^https?:\/\/meet\.google\.com\//, '').split(/[?#]/)[0];
+        if (!/^[a-z]{3}-[a-z]{4}-[a-z]{3}$/.test(meetCode)) {
+            throw new Error(`"${meetLink}" is not a Meet link. Expected https://meet.google.com/abc-defg-hij or abc-defg-hij.`);
+        }
+    }
+
     const { client, permissions } = await getAuthClient(email);
     assertCalendarCanWrite(permissions, email);
     const calendar = google.calendar({ version: 'v3', auth: client });
@@ -2044,8 +2059,40 @@ async function calendarUpdateEvent(
     if (endDateTime !== undefined) patch.end = { dateTime: endDateTime, timeZone };
     if (attendees !== undefined) patch.attendees = attendees.split(',').map(a => ({ email: a.trim() }));
 
-    const response = await calendar.events.patch({ calendarId, eventId, requestBody: patch });
-    return `Event updated. ID: ${response.data.id}, Link: ${response.data.htmlLink}`;
+    // Replacing the conference, not adding a second link in the description:
+    // the "Join with Google Meet" button reads conferenceData, so a link
+    // anywhere else leaves two rooms on one invite (multiGoogleMCP #1351 in OS).
+    if (addGoogleMeet) {
+        patch.conferenceData = {
+            createRequest: {
+                requestId: `meet-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+                conferenceSolutionKey: { type: 'hangoutsMeet' }
+            }
+        };
+    } else if (meetCode) {
+        patch.conferenceData = {
+            conferenceId: meetCode,
+            conferenceSolution: { key: { type: 'hangoutsMeet' } },
+            entryPoints: [{ entryPointType: 'video', uri: `https://meet.google.com/${meetCode}`, label: `meet.google.com/${meetCode}` }]
+        };
+    }
+    const touchesConference = Boolean(addGoogleMeet || meetCode);
+
+    const response = await calendar.events.patch({
+        calendarId,
+        eventId,
+        requestBody: patch,
+        conferenceDataVersion: touchesConference ? 1 : undefined,
+        sendUpdates: sendUpdates ?? 'none'
+    });
+    const newMeet = response.data.hangoutLink
+        || response.data.conferenceData?.entryPoints?.find(e => e.entryPointType === 'video')?.uri;
+    const pending = response.data.conferenceData?.createRequest?.status?.statusCode === 'pending';
+    const meetNote = !touchesConference ? ''
+        : newMeet ? `, Meet Link: ${newMeet}`
+        : pending ? ', Meet Link: still being created, read the event again in a few seconds'
+        : ', Meet Link: Google did not return one';
+    return `Event updated. ID: ${response.data.id}${meetNote}, Link: ${response.data.htmlLink}, Guests emailed: ${sendUpdates ?? 'none'}`;
 }
 
 async function calendarDeleteEvent(email: string, calendarId: string, eventId: string) {
@@ -2527,7 +2574,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 break;
             case "calendar_update_event":
                 if (!args || typeof args.email !== 'string' || typeof args.calendarId !== 'string' || typeof args.eventId !== 'string') throw new Error("Missing or invalid arguments for calendar_update_event.");
-                result = await calendarUpdateEvent(args.email, args.calendarId, args.eventId, typeof args.title === 'string' ? args.title : undefined, typeof args.startDateTime === 'string' ? args.startDateTime : undefined, typeof args.endDateTime === 'string' ? args.endDateTime : undefined, typeof args.description === 'string' ? args.description : undefined, typeof args.location === 'string' ? args.location : undefined, typeof args.attendees === 'string' ? args.attendees : undefined, typeof args.timeZone === 'string' ? args.timeZone : undefined);
+                result = await calendarUpdateEvent(args.email, args.calendarId, args.eventId, typeof args.title === 'string' ? args.title : undefined, typeof args.startDateTime === 'string' ? args.startDateTime : undefined, typeof args.endDateTime === 'string' ? args.endDateTime : undefined, typeof args.description === 'string' ? args.description : undefined, typeof args.location === 'string' ? args.location : undefined, typeof args.attendees === 'string' ? args.attendees : undefined, typeof args.timeZone === 'string' ? args.timeZone : undefined, typeof args.addGoogleMeet === 'boolean' ? args.addGoogleMeet : undefined, typeof args.meetLink === 'string' ? args.meetLink : undefined, args.sendUpdates === 'all' || args.sendUpdates === 'externalOnly' || args.sendUpdates === 'none' ? args.sendUpdates : undefined);
                 break;
             case "calendar_delete_event":
                 if (!args || typeof args.email !== 'string' || typeof args.calendarId !== 'string' || typeof args.eventId !== 'string') throw new Error("Missing or invalid arguments for calendar_delete_event.");
