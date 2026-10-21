@@ -787,7 +787,10 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
                     type: "array",
                     items: { type: "string" },
                     description: "Replaces the event's recurrence rule with one or more RFC 5545 lines (same format as calendar_create_event's recurrence). Pass an empty array to stop the event from repeating (turn it back into a single event). Omit entirely to leave recurrence unchanged."
-                }
+                },
+                addGoogleMeet: { type: "boolean", description: "If true, creates a new Google Meet room owned by this account and attaches it, replacing any Meet already on the event. The 'Join with Google Meet' button then points at the new room." },
+                meetLink: { type: "string", description: "Attach an existing Meet room instead, e.g. one owned by another account: a https://meet.google.com/abc-defg-hij URL or just the abc-defg-hij code. Replaces any Meet already on the event. Cannot be combined with addGoogleMeet." },
+                sendUpdates: { type: "string", enum: ["all", "externalOnly", "none"], description: "Who Google emails about this change. Defaults to 'none', so editing an event never emails guests unless you ask." }
             },
             required: ["email", "calendarId", "eventId"]
         }

@@ -255,7 +255,14 @@ export async function calendarUpdateEvent(
   attendees?: string,
   timeZone?: string,
   recurrence?: string[],
+  addGoogleMeet?: boolean,
+  meetLink?: string,
+  sendUpdates?: "all" | "externalOnly" | "none",
 ) {
+  if (addGoogleMeet && meetLink)
+    throw new Error("Pass addGoogleMeet or meetLink, not both.");
+  const meetCode = meetLink ? parseMeetCode(meetLink) : undefined;
+
   const { client, permissions } = await getAuthClient(email);
   assertCalendarCanWrite(permissions, email);
   const calendar = google.calendar({ version: "v3", auth: client });
@@ -274,12 +281,70 @@ export async function calendarUpdateEvent(
   // Pass [] to clear an event's recurrence (turn it back into a single event).
   if (recurrence !== undefined) patch.recurrence = recurrence;
 
+  // Replace the conference itself, not add a second link to the description:
+  // the "Join with Google Meet" button reads conferenceData, so a link anywhere
+  // else leaves two rooms on one invite.
+  if (addGoogleMeet) {
+    patch.conferenceData = {
+      createRequest: {
+        requestId: `meet-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        conferenceSolutionKey: { type: "hangoutsMeet" },
+      },
+    };
+  } else if (meetCode) {
+    patch.conferenceData = {
+      conferenceId: meetCode,
+      conferenceSolution: { key: { type: "hangoutsMeet" } },
+      entryPoints: [
+        {
+          entryPointType: "video",
+          uri: `https://meet.google.com/${meetCode}`,
+          label: `meet.google.com/${meetCode}`,
+        },
+      ],
+    };
+  }
+  const touchesConference = Boolean(addGoogleMeet || meetCode);
+  const emailed = sendUpdates ?? "none";
+
   const response = await calendar.events.patch({
     calendarId,
     eventId,
     requestBody: patch,
+    conferenceDataVersion: touchesConference ? 1 : undefined,
+    sendUpdates: emailed,
   });
-  return `Event updated. ID: ${response.data.id}, Link: ${response.data.htmlLink}`;
+
+  let meetNote = "";
+  if (touchesConference) {
+    const newMeet =
+      response.data.hangoutLink ||
+      response.data.conferenceData?.entryPoints?.find(
+        (e) => e.entryPointType === "video",
+      )?.uri;
+    const pending =
+      response.data.conferenceData?.createRequest?.status?.statusCode ===
+      "pending";
+    meetNote = newMeet
+      ? `, Meet Link: ${newMeet}`
+      : pending
+        ? ", Meet Link: still being created, read the event again in a few seconds"
+        : ", Meet Link: Google did not return one";
+  }
+  return `Event updated. ID: ${response.data.id}${meetNote}, Link: ${response.data.htmlLink}, Guests emailed: ${emailed}`;
+}
+
+/** Accepts https://meet.google.com/abc-defg-hij or the bare abc-defg-hij code. */
+export function parseMeetCode(link: string): string {
+  const code = link
+    .trim()
+    .replace(/^https?:\/\/meet\.google\.com\//, "")
+    .split(/[?#/]/)[0];
+  if (!/^[a-z]{3}-[a-z]{4}-[a-z]{3}$/.test(code))
+    throw new Error(
+      `"${link}" is not a Meet link. Expected https://meet.google.com/abc-defg-hij or abc-defg-hij.`,
+    );
+  return code;
 }
 
 export async function calendarDeleteEvent(

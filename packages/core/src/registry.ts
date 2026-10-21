@@ -438,6 +438,13 @@ async function dispatch(name: string, args: Args): Promise<string> {
         str(args.attendees) ? args.attendees : undefined,
         str(args.timeZone) ? args.timeZone : undefined,
         strArray(args.recurrence) ? args.recurrence : undefined,
+        bool(args.addGoogleMeet) ? args.addGoogleMeet : undefined,
+        str(args.meetLink) ? args.meetLink : undefined,
+        args.sendUpdates === "all" ||
+          args.sendUpdates === "externalOnly" ||
+          args.sendUpdates === "none"
+          ? args.sendUpdates
+          : undefined,
       );
     case "calendar_delete_event":
       if (!str(args.email) || !str(args.calendarId) || !str(args.eventId))
