@@ -438,7 +438,9 @@ async function dispatch(name: string, args: Args): Promise<string> {
         str(args.attendees) ? args.attendees : undefined,
         str(args.timeZone) ? args.timeZone : undefined,
         strArray(args.recurrence) ? args.recurrence : undefined,
-        bool(args.addGoogleMeet) ? args.addGoogleMeet : undefined,
+        // "true" as well: a client holding the tool list from before this
+        // argument existed sends an unknown property as a string.
+        args.addGoogleMeet === true || args.addGoogleMeet === "true" ? true : undefined,
         str(args.meetLink) ? args.meetLink : undefined,
         args.sendUpdates === "all" ||
           args.sendUpdates === "externalOnly" ||
