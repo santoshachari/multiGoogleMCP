@@ -1098,6 +1098,18 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         }
     },
     {
+        name: "docs_get_structure",
+        description: "Get the structural layout of a Google Doc: each top-level paragraph's character index range, heading style, and bullet nesting level. Use this (not docs_get_content's plain-text offsets) to find exact ranges for docs_create_bullets, docs_update_paragraph_style, docs_update_text_style, and docs_delete_content_range.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The authenticated Google account." },
+                documentId: { type: "string", description: "The document ID (from its URL or drive_search_files)." }
+            },
+            required: ["email", "documentId"]
+        }
+    },
+    {
         name: "docs_append_text",
         description: "Append plain text to the end of a Google Doc.",
         inputSchema: {
@@ -1137,6 +1149,68 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
                 matchCase: { type: "boolean", description: "Whether the search is case-sensitive (default: false)." }
             },
             required: ["email", "documentId", "findText", "replaceText"]
+        }
+    },
+    {
+        name: "docs_create_bullets",
+        description: "Turn a range of paragraphs into a bulleted or numbered list, optionally nested. Get exact indexes from docs_get_structure first.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The authenticated Google account." },
+                documentId: { type: "string", description: "The document ID." },
+                startIndex: { type: "number", description: "Start character index of the paragraph range (from docs_get_structure)." },
+                endIndex: { type: "number", description: "End character index of the paragraph range (from docs_get_structure)." },
+                nestingLevel: { type: "number", description: "Indent level, 0 = top-level bullet, 1 = first nested level, etc. (default: 0). Approximated via indentation, like Tab in the Docs editor — verify visually for documents with custom list styles." },
+                bulletPreset: { type: "string", description: "Docs API bullet preset, e.g. 'BULLET_DISC_CIRCLE_SQUARE' (default) or 'NUMBERED_DECIMAL_ALPHA_ROMAN' for a numbered list." }
+            },
+            required: ["email", "documentId", "startIndex", "endIndex"]
+        }
+    },
+    {
+        name: "docs_update_paragraph_style",
+        description: "Set the paragraph style (e.g. a heading) for a range of text in a Google Doc. Get exact indexes from docs_get_structure first.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The authenticated Google account." },
+                documentId: { type: "string", description: "The document ID." },
+                startIndex: { type: "number", description: "Start character index of the paragraph range (from docs_get_structure)." },
+                endIndex: { type: "number", description: "End character index of the paragraph range (from docs_get_structure)." },
+                namedStyleType: { type: "string", description: "One of NORMAL_TEXT, TITLE, SUBTITLE, HEADING_1 through HEADING_6." }
+            },
+            required: ["email", "documentId", "startIndex", "endIndex", "namedStyleType"]
+        }
+    },
+    {
+        name: "docs_update_text_style",
+        description: "Set bold, italic, and/or underline for a range of text in a Google Doc. Get exact indexes from docs_get_structure first.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The authenticated Google account." },
+                documentId: { type: "string", description: "The document ID." },
+                startIndex: { type: "number", description: "Start character index of the text range." },
+                endIndex: { type: "number", description: "End character index of the text range." },
+                bold: { type: "boolean", description: "Set or clear bold." },
+                italic: { type: "boolean", description: "Set or clear italic." },
+                underline: { type: "boolean", description: "Set or clear underline." }
+            },
+            required: ["email", "documentId", "startIndex", "endIndex"]
+        }
+    },
+    {
+        name: "docs_delete_content_range",
+        description: "Delete a range of content from a Google Doc. Get exact indexes from docs_get_structure or docs_get_content first.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The authenticated Google account." },
+                documentId: { type: "string", description: "The document ID." },
+                startIndex: { type: "number", description: "Start character index of the range to delete." },
+                endIndex: { type: "number", description: "End character index of the range to delete." }
+            },
+            required: ["email", "documentId", "startIndex", "endIndex"]
         }
     }
 ];

@@ -88,9 +88,14 @@ export const IMPLEMENTED_TOOLS = [
   "sheets_clear_range",
   // Docs
   "docs_get_content",
+  "docs_get_structure",
   "docs_append_text",
   "docs_insert_text",
   "docs_replace_text",
+  "docs_create_bullets",
+  "docs_update_paragraph_style",
+  "docs_update_text_style",
+  "docs_delete_content_range",
 ] as const;
 
 // Which service a tool belongs to — used by hosts to filter the advertised
@@ -615,6 +620,10 @@ async function dispatch(name: string, args: Args): Promise<string> {
       if (!str(args.email) || !str(args.documentId))
         throw new Error("Missing or invalid arguments for docs_get_content.");
       return docs.docsGetContent(args.email, args.documentId);
+    case "docs_get_structure":
+      if (!str(args.email) || !str(args.documentId))
+        throw new Error("Missing or invalid arguments for docs_get_structure.");
+      return docs.docsGetStructure(args.email, args.documentId);
     case "docs_append_text":
       if (!str(args.email) || !str(args.documentId) || !str(args.text))
         throw new Error("Missing or invalid arguments for docs_append_text.");
@@ -647,6 +656,69 @@ async function dispatch(name: string, args: Args): Promise<string> {
         args.findText,
         args.replaceText,
         bool(args.matchCase) ? args.matchCase : undefined,
+      );
+    case "docs_create_bullets":
+      if (
+        !str(args.email) ||
+        !str(args.documentId) ||
+        !num(args.startIndex) ||
+        !num(args.endIndex)
+      )
+        throw new Error("Missing or invalid arguments for docs_create_bullets.");
+      return docs.docsCreateBullets(
+        args.email,
+        args.documentId,
+        args.startIndex,
+        args.endIndex,
+        num(args.nestingLevel) ? args.nestingLevel : 0,
+        str(args.bulletPreset) ? args.bulletPreset : "BULLET_DISC_CIRCLE_SQUARE",
+      );
+    case "docs_update_paragraph_style":
+      if (
+        !str(args.email) ||
+        !str(args.documentId) ||
+        !num(args.startIndex) ||
+        !num(args.endIndex) ||
+        !str(args.namedStyleType)
+      )
+        throw new Error("Missing or invalid arguments for docs_update_paragraph_style.");
+      return docs.docsUpdateParagraphStyle(
+        args.email,
+        args.documentId,
+        args.startIndex,
+        args.endIndex,
+        args.namedStyleType,
+      );
+    case "docs_update_text_style":
+      if (
+        !str(args.email) ||
+        !str(args.documentId) ||
+        !num(args.startIndex) ||
+        !num(args.endIndex)
+      )
+        throw new Error("Missing or invalid arguments for docs_update_text_style.");
+      return docs.docsUpdateTextStyle(
+        args.email,
+        args.documentId,
+        args.startIndex,
+        args.endIndex,
+        bool(args.bold) ? args.bold : undefined,
+        bool(args.italic) ? args.italic : undefined,
+        bool(args.underline) ? args.underline : undefined,
+      );
+    case "docs_delete_content_range":
+      if (
+        !str(args.email) ||
+        !str(args.documentId) ||
+        !num(args.startIndex) ||
+        !num(args.endIndex)
+      )
+        throw new Error("Missing or invalid arguments for docs_delete_content_range.");
+      return docs.docsDeleteContentRange(
+        args.email,
+        args.documentId,
+        args.startIndex,
+        args.endIndex,
       );
 
     default:

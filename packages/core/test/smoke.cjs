@@ -87,6 +87,18 @@ function resolver(permissions) {
     () => executeTool(readonlyAll, "drive_create_comment", { email: "u@x.com", fileId: "f1", content: "hi" }),
     /requires 'full'/,
   );
+  const readonlyDocs = resolver({ gmail: "readonly", calendar: "readonly", drive: "readonly", chat: "readonly", sheets: "readonly", docs: "readonly" });
+  await expectThrow(
+    "docs_create_bullets denied when docs=readonly",
+    () => executeTool(readonlyDocs, "docs_create_bullets", { email: "u@x.com", documentId: "d1", startIndex: 1, endIndex: 5 }),
+    /requires 'full'/,
+  );
+  const fullDocs = resolver({ gmail: "none", calendar: "none", drive: "none", chat: "none", sheets: "none", docs: "full" });
+  await expectThrow(
+    "docs_update_text_style rejects when no style flag given",
+    () => executeTool(fullDocs, "docs_update_text_style", { email: "u@x.com", documentId: "d1", startIndex: 1, endIndex: 5 }),
+    /at least one of/,
+  );
 
   // 6. All 53 tools are registered in the dispatcher (arg-validation reached,
   //    not "unknown tool"). We call each with empty args and accept any error

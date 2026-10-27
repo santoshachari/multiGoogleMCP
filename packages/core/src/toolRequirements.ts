@@ -64,6 +64,10 @@ export const TOOL_REQUIREMENTS: Record<string, string> = {
   docs_append_text: "full",
   docs_insert_text: "full",
   docs_replace_text: "full",
+  docs_create_bullets: "full",
+  docs_update_paragraph_style: "full",
+  docs_update_text_style: "full",
+  docs_delete_content_range: "full",
 };
 
 function requiredLevel(toolName: string): string {
