@@ -4,39 +4,10 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { summarizeScopes } from "@/lib/googleScopes";
 import { allowedGmailTiers, allowedServiceTiers } from "@/lib/permissions";
-import { deleteAgent, saveGrant, revokeApiKey } from "../actions";
+import { deleteAgent, revokeApiKey } from "../actions";
 import { MintKey } from "./MintKey";
 import { CopyField } from "./CopyField";
-
-function TierSelect({
-  name,
-  options,
-  value,
-}: {
-  name: string;
-  options: string[];
-  value: string;
-}) {
-  return (
-    <label className="flex flex-col gap-1">
-      <span className="font-mono text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400">
-        {name}
-      </span>
-      <select
-        name={name}
-        defaultValue={options.includes(value) ? value : "none"}
-        disabled={options.length <= 1}
-        className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-sm capitalize text-slate-900 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-      >
-        {options.map((o) => (
-          <option key={o} value={o}>
-            {o}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
+import { SaveGrantForm } from "./SaveGrantForm";
 
 const LOGS_PER_PAGE = 20;
 
@@ -145,54 +116,17 @@ export default async function AgentDetail({
                     <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">
                       {acc.googleEmail}
                     </p>
-                    <form action={saveGrant} className="mt-3">
-                      <input type="hidden" name="agentId" value={agent.id} />
-                      <input
-                        type="hidden"
-                        name="connectedAccountId"
-                        value={acc.id}
-                      />
-                      <div className="flex flex-wrap gap-3">
-                        <TierSelect
-                          name="gmail"
-                          options={allowedGmailTiers(ceiling.gmail)}
-                          value={grant?.gmail ?? "none"}
-                        />
-                        <TierSelect
-                          name="calendar"
-                          options={allowedServiceTiers(ceiling.calendar)}
-                          value={grant?.calendar ?? "none"}
-                        />
-                        <TierSelect
-                          name="drive"
-                          options={allowedServiceTiers(ceiling.drive)}
-                          value={grant?.drive ?? "none"}
-                        />
-                        <TierSelect
-                          name="chat"
-                          options={allowedServiceTiers(ceiling.chat)}
-                          value={grant?.chat ?? "none"}
-                        />
-                        <TierSelect
-                          name="sheets"
-                          options={allowedServiceTiers(ceiling.sheets)}
-                          value={grant?.sheets ?? "none"}
-                        />
-                        <TierSelect
-                          name="docs"
-                          options={allowedServiceTiers(ceiling.docs)}
-                          value={grant?.docs ?? "none"}
-                        />
-                        <div className="flex items-end">
-                          <button
-                            type="submit"
-                            className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white transition hover:opacity-90 dark:bg-white dark:text-slate-900"
-                          >
-                            Save
-                          </button>
-                        </div>
-                      </div>
-                    </form>
+                    <SaveGrantForm
+                      agentId={agent.id}
+                      connectedAccountId={acc.id}
+                      gmailOptions={allowedGmailTiers(ceiling.gmail)}
+                      calendarOptions={allowedServiceTiers(ceiling.calendar)}
+                      driveOptions={allowedServiceTiers(ceiling.drive)}
+                      chatOptions={allowedServiceTiers(ceiling.chat)}
+                      sheetsOptions={allowedServiceTiers(ceiling.sheets)}
+                      docsOptions={allowedServiceTiers(ceiling.docs)}
+                      grant={grant}
+                    />
                   </li>
                 );
               })}

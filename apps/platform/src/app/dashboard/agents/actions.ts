@@ -58,7 +58,17 @@ export async function deleteAgent(formData: FormData) {
   redirect("/dashboard/agents");
 }
 
-export async function saveGrant(formData: FormData) {
+export type SaveGrantState = { ok: boolean; error?: string; savedAt?: number };
+
+// Bound to a <form> via useActionState (see SaveGrantForm) so Save always
+// shows a real result — pending/"Saved"/error — instead of the old
+// redirect-to-the-same-URL trick, which produced no visible change at all
+// on success and silently did nothing if the action failed (e.g. a stale
+// client bundle after a redeploy, "Failed to find Server Action").
+export async function saveGrant(
+  _prevState: SaveGrantState,
+  formData: FormData,
+): Promise<SaveGrantState> {
   const userId = await requireUserId();
   const agentId = String(formData.get("agentId") ?? "");
   const connectedAccountId = String(formData.get("connectedAccountId") ?? "");
@@ -68,7 +78,9 @@ export async function saveGrant(formData: FormData) {
   const account = await prisma.connectedAccount.findFirst({
     where: { id: connectedAccountId, userId },
   });
-  if (!agent || !account) return;
+  if (!agent || !account) {
+    return { ok: false, error: "Agent or account not found." };
+  }
 
   // Clamp each requested tier to the account's granted ceiling — a grant can
   // never exceed what Google actually authorized for the account.
@@ -105,12 +117,7 @@ export async function saveGrant(formData: FormData) {
   });
 
   revalidatePath(`/dashboard/agents/${agentId}`);
-  // revalidatePath alone can leave the client's Router Cache serving the
-  // pre-mutation page (the selects visually "reset" to the old values even
-  // though the DB is correct — confirmed via a hard reload showing the right
-  // data). Redirecting back to the same URL forces a real navigation, which
-  // is not served from that stale cache.
-  redirect(`/dashboard/agents/${agentId}`);
+  return { ok: true, savedAt: Date.now() };
 }
 
 export async function removeGrant(formData: FormData) {
