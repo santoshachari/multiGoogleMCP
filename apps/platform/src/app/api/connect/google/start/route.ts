@@ -24,7 +24,17 @@ export async function GET(req: NextRequest) {
   // Reconnecting an existing (expired/revoked) account: reuse its exact
   // prior tiers rather than asking the user to re-pick them. The callback
   // upserts on the same googleSub, so this refreshes that same row.
+  //
+  // The one-click "Reconnect" link on the dashboard sends only `reconnect`
+  // (no tier params) and means "same access as before". The "Edit access"
+  // form sends `reconnect` *plus* every tier field explicitly (it's the same
+  // form used to connect a new account, pre-filled) and means "use exactly
+  // what I just picked" — so an explicit `gmail` param always wins over the
+  // account's stored scopes, letting one service be raised (e.g. docs) or
+  // lowered without silently resetting the others back to a hardcoded
+  // default.
   const reconnectId = sp.get("reconnect");
+  const explicitTiers = sp.has("gmail");
   let tiers = {
     gmail: coerceGmailTier(sp.get("gmail")),
     calendar: coerceServiceTier(sp.get("calendar")),
@@ -33,11 +43,15 @@ export async function GET(req: NextRequest) {
     sheets: coerceServiceTier(sp.get("sheets")),
     docs: coerceServiceTier(sp.get("docs")),
   };
+  let loginHint: string | undefined;
   if (reconnectId) {
     const account = await prisma.connectedAccount.findFirst({
       where: { id: reconnectId, userId: session.user.id },
     });
-    if (account) tiers = summarizeScopes(account.grantedScopes);
+    if (account) {
+      if (!explicitTiers) tiers = summarizeScopes(account.grantedScopes);
+      loginHint = account.googleEmail;
+    }
   }
 
   const scopes = buildConnectScopes(tiers);
@@ -56,6 +70,7 @@ export async function GET(req: NextRequest) {
   authUrl.searchParams.set("access_type", "offline");
   authUrl.searchParams.set("prompt", "consent"); // force a refresh token every time
   authUrl.searchParams.set("state", state);
+  if (loginHint) authUrl.searchParams.set("login_hint", loginHint);
 
   const res = NextResponse.redirect(authUrl.toString());
   res.cookies.set("connect_state", state, {

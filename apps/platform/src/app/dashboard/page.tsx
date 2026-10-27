@@ -202,6 +202,12 @@ export default async function Dashboard({
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
                       <Link
+                        href={`/dashboard/connect?accountId=${a.id}`}
+                        className="whitespace-nowrap rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-600 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"
+                      >
+                        Edit access
+                      </Link>
+                      <Link
                         href={`/api/connect/google/start?reconnect=${a.id}`}
                         className={
                           a.status !== "active"
