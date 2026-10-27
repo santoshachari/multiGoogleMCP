@@ -971,6 +971,47 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         }
     },
     {
+        name: "drive_create_comment",
+        description: "Add a new top-level comment to a Google Drive file (e.g. a Google Doc).",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The authenticated Google account." },
+                fileId: { type: "string", description: "The file ID (from drive_list_files or drive_search_files)." },
+                content: { type: "string", description: "The comment text." }
+            },
+            required: ["email", "fileId", "content"]
+        }
+    },
+    {
+        name: "drive_list_comments",
+        description: "List the comments (and their replies) on a Google Drive file.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The authenticated Google account." },
+                fileId: { type: "string", description: "The file ID (from drive_list_files or drive_search_files)." },
+                maxResults: { type: "number", description: "Maximum number of comments to return (default: 20)." },
+                pageToken: { type: "string", description: "Pagination token from a previous call's nextPageToken, to fetch the next page of results." }
+            },
+            required: ["email", "fileId"]
+        }
+    },
+    {
+        name: "drive_reply_comment",
+        description: "Reply to an existing comment on a Google Drive file.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The authenticated Google account." },
+                fileId: { type: "string", description: "The file ID (from drive_list_files or drive_search_files)." },
+                commentId: { type: "string", description: "The comment ID to reply to (from drive_list_comments)." },
+                content: { type: "string", description: "The reply text." }
+            },
+            required: ["email", "fileId", "commentId", "content"]
+        }
+    },
+    {
         name: "sheets_list_tabs",
         description: "List the tabs (sheets) inside a Google Sheets spreadsheet, with their titles and dimensions.",
         inputSchema: {

@@ -44,6 +44,8 @@ export const TOOL_REQUIREMENTS: Record<string, string> = {
   drive_delete_file: "full",
   drive_share_file: "full",
   drive_move_file: "full",
+  drive_create_comment: "full",
+  drive_reply_comment: "full",
 
   chat_send_message: "full",
   chat_add_reaction: "full",

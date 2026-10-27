@@ -82,6 +82,11 @@ function resolver(permissions) {
     () => executeTool(readonlyAll, "chat_send_message", { email: "u@x.com", spaceName: "spaces/AAA", text: "hi" }),
     /requires 'full'/,
   );
+  await expectThrow(
+    "drive_create_comment denied when drive=readonly",
+    () => executeTool(readonlyAll, "drive_create_comment", { email: "u@x.com", fileId: "f1", content: "hi" }),
+    /requires 'full'/,
+  );
 
   // 6. All 53 tools are registered in the dispatcher (arg-validation reached,
   //    not "unknown tool"). We call each with empty args and accept any error

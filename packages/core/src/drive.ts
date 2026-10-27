@@ -245,3 +245,65 @@ export async function driveMoveFile(
   });
   return `File ${fileId} moved to folder ${newParentFolderId}.`;
 }
+
+const COMMENT_FIELDS =
+  "id,content,htmlContent,createdTime,modifiedTime,resolved,author(displayName,emailAddress),replies(id,content,htmlContent,createdTime,modifiedTime,author(displayName,emailAddress))";
+
+export async function driveCreateComment(
+  email: string,
+  fileId: string,
+  content: string,
+) {
+  const { client, permissions } = await getAuthClient(email);
+  assertDriveCanWrite(permissions, email);
+  const drive = google.drive({ version: "v3", auth: client });
+  const response = await drive.comments.create({
+    fileId,
+    requestBody: { content },
+    fields: COMMENT_FIELDS,
+  });
+  return JSON.stringify(response.data, null, 2);
+}
+
+export async function driveListComments(
+  email: string,
+  fileId: string,
+  maxResults: number = 20,
+  pageToken?: string,
+) {
+  const { client } = await getAuthClient(email);
+  const drive = google.drive({ version: "v3", auth: client });
+  const response = await drive.comments.list({
+    fileId,
+    pageSize: maxResults,
+    pageToken,
+    includeDeleted: false,
+    fields: `nextPageToken, comments(${COMMENT_FIELDS})`,
+  });
+  return JSON.stringify(
+    {
+      comments: response.data.comments || [],
+      nextPageToken: response.data.nextPageToken || null,
+    },
+    null,
+    2,
+  );
+}
+
+export async function driveReplyComment(
+  email: string,
+  fileId: string,
+  commentId: string,
+  content: string,
+) {
+  const { client, permissions } = await getAuthClient(email);
+  assertDriveCanWrite(permissions, email);
+  const drive = google.drive({ version: "v3", auth: client });
+  const response = await drive.replies.create({
+    fileId,
+    commentId,
+    requestBody: { content },
+    fields: "id,content,htmlContent,createdTime,modifiedTime,author(displayName,emailAddress)",
+  });
+  return JSON.stringify(response.data, null, 2);
+}

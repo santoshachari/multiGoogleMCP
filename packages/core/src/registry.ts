@@ -77,6 +77,9 @@ export const IMPLEMENTED_TOOLS = [
   "drive_delete_file",
   "drive_share_file",
   "drive_move_file",
+  "drive_create_comment",
+  "drive_list_comments",
+  "drive_reply_comment",
   // Sheets
   "sheets_list_tabs",
   "sheets_read_range",
@@ -547,6 +550,23 @@ async function dispatch(name: string, args: Args): Promise<string> {
       if (!str(args.email) || !str(args.fileId) || !str(args.newParentFolderId))
         throw new Error("Missing or invalid arguments for drive_move_file.");
       return drive.driveMoveFile(args.email, args.fileId, args.newParentFolderId);
+    case "drive_create_comment":
+      if (!str(args.email) || !str(args.fileId) || !str(args.content))
+        throw new Error("Missing or invalid arguments for drive_create_comment.");
+      return drive.driveCreateComment(args.email, args.fileId, args.content);
+    case "drive_list_comments":
+      if (!str(args.email) || !str(args.fileId))
+        throw new Error("Missing or invalid arguments for drive_list_comments.");
+      return drive.driveListComments(
+        args.email,
+        args.fileId,
+        num(args.maxResults) ? args.maxResults : 20,
+        str(args.pageToken) ? args.pageToken : undefined,
+      );
+    case "drive_reply_comment":
+      if (!str(args.email) || !str(args.fileId) || !str(args.commentId) || !str(args.content))
+        throw new Error("Missing or invalid arguments for drive_reply_comment.");
+      return drive.driveReplyComment(args.email, args.fileId, args.commentId, args.content);
 
     // ---- Sheets ----
     case "sheets_list_tabs":
