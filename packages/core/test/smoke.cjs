@@ -99,6 +99,16 @@ function resolver(permissions) {
     () => executeTool(fullDocs, "docs_update_text_style", { email: "u@x.com", documentId: "d1", startIndex: 1, endIndex: 5 }),
     /at least one of/,
   );
+  await expectThrow(
+    "docs_batch_update denied when docs=readonly",
+    () => executeTool(readonlyDocs, "docs_batch_update", { email: "u@x.com", documentId: "d1", requests: [] }),
+    /requires 'full'/,
+  );
+  await expectThrow(
+    "docs_batch_update rejects non-array requests",
+    () => executeTool(fullDocs, "docs_batch_update", { email: "u@x.com", documentId: "d1", requests: "not-an-array" }),
+    /Missing or invalid/,
+  );
 
   // 6. All 53 tools are registered in the dispatcher (arg-validation reached,
   //    not "unknown tool"). We call each with empty args and accept any error

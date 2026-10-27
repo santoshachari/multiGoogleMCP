@@ -1212,5 +1212,22 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
             },
             required: ["email", "documentId", "startIndex", "endIndex"]
         }
+    },
+    {
+        name: "docs_batch_update",
+        description: "Apply a list of raw Google Docs API requests to a document in one atomic call (see https://developers.google.com/docs/api/reference/rest/v1/documents/request for the full set: insertText, deleteContentRange, createParagraphBullets, updateParagraphStyle, updateTextStyle, insertTable, and more). Prefer this over chaining the narrower docs_* tools when making several edits: Google resolves each request's indexes against the document as it exists after every prior request in the same list, so all ranges can be computed once from a single docs_get_structure call instead of re-fetching between steps.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                email: { type: "string", description: "The authenticated Google account." },
+                documentId: { type: "string", description: "The document ID." },
+                requests: {
+                    type: "array",
+                    description: "An array of Docs API request objects, each with exactly one key naming the request type (e.g. { \"insertText\": { \"text\": \"hi\", \"location\": { \"index\": 1 } } }), applied in order.",
+                    items: { type: "object" }
+                }
+            },
+            required: ["email", "documentId", "requests"]
+        }
     }
 ];

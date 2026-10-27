@@ -291,3 +291,26 @@ export async function docsDeleteContentRange(
   });
   return `Deleted content range [${startIndex}, ${endIndex}).`;
 }
+
+// Raw passthrough to the Docs API's batchUpdate: any mix of the request
+// kinds in https://developers.google.com/docs/api/reference/rest/v1/documents/request
+// (insertText, deleteContentRange, createParagraphBullets,
+// updateParagraphStyle, updateTextStyle, etc.), applied atomically in one
+// call. Google resolves each request's indexes against the document *as it
+// exists after every prior request in the same array* — so a caller can
+// compute all ranges once from a single docs_get_structure snapshot without
+// re-fetching between steps, unlike chaining the narrower docs_* tools.
+export async function docsBatchUpdate(
+  email: string,
+  documentId: string,
+  requests: unknown[],
+) {
+  const { client, permissions } = await getAuthClient(email);
+  assertDocsCanWrite(permissions, email);
+  const docs = google.docs({ version: "v1", auth: client });
+  const response = await docs.documents.batchUpdate({
+    documentId,
+    requestBody: { requests: requests as any[] },
+  });
+  return JSON.stringify({ replies: response.data.replies ?? [] }, null, 2);
+}

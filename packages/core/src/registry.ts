@@ -96,6 +96,7 @@ export const IMPLEMENTED_TOOLS = [
   "docs_update_paragraph_style",
   "docs_update_text_style",
   "docs_delete_content_range",
+  "docs_batch_update",
 ] as const;
 
 // Which service a tool belongs to — used by hosts to filter the advertised
@@ -720,6 +721,10 @@ async function dispatch(name: string, args: Args): Promise<string> {
         args.startIndex,
         args.endIndex,
       );
+    case "docs_batch_update":
+      if (!str(args.email) || !str(args.documentId) || !Array.isArray(args.requests))
+        throw new Error("Missing or invalid arguments for docs_batch_update.");
+      return docs.docsBatchUpdate(args.email, args.documentId, args.requests);
 
     default:
       throw new Error(`Unknown or unimplemented tool: ${name}`);
