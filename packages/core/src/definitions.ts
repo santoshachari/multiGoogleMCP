@@ -1087,12 +1087,13 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     },
     {
         name: "docs_get_content",
-        description: "Read the plain-text content of a Google Doc.",
+        description: "Read the plain-text content of a Google Doc. If the document has more than one tab and tabId is omitted, this returns a tab index (id, title) instead of guessing which tab you mean — call again with one of those tabIds.",
         inputSchema: {
             type: "object",
             properties: {
                 email: { type: "string", description: "The authenticated Google account." },
-                documentId: { type: "string", description: "The document ID (from its URL or drive_search_files)." }
+                documentId: { type: "string", description: "The document ID (from its URL or drive_search_files)." },
+                tabId: { type: "string", description: "Limit to one tab (from a prior call's tab index, or from docs_get_structure). Required once the document has more than one tab." }
             },
             required: ["email", "documentId"]
         }
@@ -1119,7 +1120,8 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
             properties: {
                 email: { type: "string", description: "The authenticated Google account." },
                 documentId: { type: "string", description: "The document ID." },
-                text: { type: "string", description: "The text to append." }
+                text: { type: "string", description: "The text to append." },
+                tabId: { type: "string", description: "Append to this tab instead of the first one, for a multi-tab document (from docs_get_structure)." }
             },
             required: ["email", "documentId", "text"]
         }
@@ -1133,7 +1135,8 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
                 email: { type: "string", description: "The authenticated Google account." },
                 documentId: { type: "string", description: "The document ID." },
                 text: { type: "string", description: "The text to insert." },
-                index: { type: "number", description: "Character index to insert at (1 is the very start of the document body)." }
+                index: { type: "number", description: "Character index to insert at (1 is the very start of the document body)." },
+                tabId: { type: "string", description: "The tab this index is within, for a multi-tab document (from docs_get_structure). The index is relative to that tab." }
             },
             required: ["email", "documentId", "text", "index"]
         }
@@ -1148,7 +1151,8 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
                 documentId: { type: "string", description: "The document ID." },
                 findText: { type: "string", description: "The text to search for." },
                 replaceText: { type: "string", description: "The text to replace it with." },
-                matchCase: { type: "boolean", description: "Whether the search is case-sensitive (default: false)." }
+                matchCase: { type: "boolean", description: "Whether the search is case-sensitive (default: false)." },
+                tabId: { type: "string", description: "Limit the replace to this tab, for a multi-tab document (from docs_get_structure). Omitted, it replaces across every tab." }
             },
             required: ["email", "documentId", "findText", "replaceText"]
         }
@@ -1164,7 +1168,8 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
                 startIndex: { type: "number", description: "Start character index of the paragraph range (from docs_get_structure)." },
                 endIndex: { type: "number", description: "End character index of the paragraph range (from docs_get_structure)." },
                 nestingLevel: { type: "number", description: "Indent level, 0 = top-level bullet, 1 = first nested level, etc. (default: 0). Approximated via indentation, like Tab in the Docs editor — verify visually for documents with custom list styles." },
-                bulletPreset: { type: "string", description: "Docs API bullet preset, e.g. 'BULLET_DISC_CIRCLE_SQUARE' (default) or 'NUMBERED_DECIMAL_ALPHA_ROMAN' for a numbered list." }
+                bulletPreset: { type: "string", description: "Docs API bullet preset, e.g. 'BULLET_DISC_CIRCLE_SQUARE' (default) or 'NUMBERED_DECIMAL_ALPHA_ROMAN' for a numbered list." },
+                tabId: { type: "string", description: "The tab startIndex/endIndex are within, for a multi-tab document (from docs_get_structure)." }
             },
             required: ["email", "documentId", "startIndex", "endIndex"]
         }
@@ -1179,7 +1184,8 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
                 documentId: { type: "string", description: "The document ID." },
                 startIndex: { type: "number", description: "Start character index of the paragraph range (from docs_get_structure)." },
                 endIndex: { type: "number", description: "End character index of the paragraph range (from docs_get_structure)." },
-                namedStyleType: { type: "string", description: "One of NORMAL_TEXT, TITLE, SUBTITLE, HEADING_1 through HEADING_6." }
+                namedStyleType: { type: "string", description: "One of NORMAL_TEXT, TITLE, SUBTITLE, HEADING_1 through HEADING_6." },
+                tabId: { type: "string", description: "The tab startIndex/endIndex are within, for a multi-tab document (from docs_get_structure)." }
             },
             required: ["email", "documentId", "startIndex", "endIndex", "namedStyleType"]
         }
@@ -1196,7 +1202,8 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
                 endIndex: { type: "number", description: "End character index of the text range." },
                 bold: { type: "boolean", description: "Set or clear bold." },
                 italic: { type: "boolean", description: "Set or clear italic." },
-                underline: { type: "boolean", description: "Set or clear underline." }
+                underline: { type: "boolean", description: "Set or clear underline." },
+                tabId: { type: "string", description: "The tab startIndex/endIndex are within, for a multi-tab document (from docs_get_structure)." }
             },
             required: ["email", "documentId", "startIndex", "endIndex"]
         }
@@ -1210,7 +1217,8 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
                 email: { type: "string", description: "The authenticated Google account." },
                 documentId: { type: "string", description: "The document ID." },
                 startIndex: { type: "number", description: "Start character index of the range to delete." },
-                endIndex: { type: "number", description: "End character index of the range to delete." }
+                endIndex: { type: "number", description: "End character index of the range to delete." },
+                tabId: { type: "string", description: "The tab startIndex/endIndex are within, for a multi-tab document (from docs_get_structure)." }
             },
             required: ["email", "documentId", "startIndex", "endIndex"]
         }

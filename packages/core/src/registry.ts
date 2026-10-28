@@ -620,7 +620,11 @@ async function dispatch(name: string, args: Args): Promise<string> {
     case "docs_get_content":
       if (!str(args.email) || !str(args.documentId))
         throw new Error("Missing or invalid arguments for docs_get_content.");
-      return docs.docsGetContent(args.email, args.documentId);
+      return docs.docsGetContent(
+        args.email,
+        args.documentId,
+        str(args.tabId) ? args.tabId : undefined,
+      );
     case "docs_get_structure":
       if (!str(args.email) || !str(args.documentId))
         throw new Error("Missing or invalid arguments for docs_get_structure.");
@@ -633,7 +637,12 @@ async function dispatch(name: string, args: Args): Promise<string> {
     case "docs_append_text":
       if (!str(args.email) || !str(args.documentId) || !str(args.text))
         throw new Error("Missing or invalid arguments for docs_append_text.");
-      return docs.docsAppendText(args.email, args.documentId, args.text);
+      return docs.docsAppendText(
+        args.email,
+        args.documentId,
+        args.text,
+        str(args.tabId) ? args.tabId : undefined,
+      );
     case "docs_insert_text":
       if (
         !str(args.email) ||
@@ -647,6 +656,7 @@ async function dispatch(name: string, args: Args): Promise<string> {
         args.documentId,
         args.text,
         args.index,
+        str(args.tabId) ? args.tabId : undefined,
       );
     case "docs_replace_text":
       if (
@@ -662,6 +672,7 @@ async function dispatch(name: string, args: Args): Promise<string> {
         args.findText,
         args.replaceText,
         bool(args.matchCase) ? args.matchCase : undefined,
+        str(args.tabId) ? args.tabId : undefined,
       );
     case "docs_create_bullets":
       if (
@@ -678,6 +689,7 @@ async function dispatch(name: string, args: Args): Promise<string> {
         args.endIndex,
         num(args.nestingLevel) ? args.nestingLevel : 0,
         str(args.bulletPreset) ? args.bulletPreset : "BULLET_DISC_CIRCLE_SQUARE",
+        str(args.tabId) ? args.tabId : undefined,
       );
     case "docs_update_paragraph_style":
       if (
@@ -694,6 +706,7 @@ async function dispatch(name: string, args: Args): Promise<string> {
         args.startIndex,
         args.endIndex,
         args.namedStyleType,
+        str(args.tabId) ? args.tabId : undefined,
       );
     case "docs_update_text_style":
       if (
@@ -711,6 +724,7 @@ async function dispatch(name: string, args: Args): Promise<string> {
         bool(args.bold) ? args.bold : undefined,
         bool(args.italic) ? args.italic : undefined,
         bool(args.underline) ? args.underline : undefined,
+        str(args.tabId) ? args.tabId : undefined,
       );
     case "docs_delete_content_range":
       if (
@@ -725,6 +739,7 @@ async function dispatch(name: string, args: Args): Promise<string> {
         args.documentId,
         args.startIndex,
         args.endIndex,
+        str(args.tabId) ? args.tabId : undefined,
       );
     case "docs_batch_update":
       if (!str(args.email) || !str(args.documentId) || !Array.isArray(args.requests))
