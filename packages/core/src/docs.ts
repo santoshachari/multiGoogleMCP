@@ -107,17 +107,8 @@ export async function docsReplaceText(
   return `Replaced ${occurrences} occurrence(s) of "${findText}" with "${replaceText}".`;
 }
 
-// Flat list of top-level paragraphs with their index range, heading/bullet
-// state, and text — lets a caller target an exact range for the formatting
-// tools below instead of guessing offsets from docsGetContent's plain text.
-// Tables are reported as a single opaque span (no cell-level indexes yet).
-export async function docsGetStructure(email: string, documentId: string) {
-  const { client } = await getAuthClient(email);
-  const docs = google.docs({ version: "v1", auth: client });
-  const response = await docs.documents.get({ documentId });
-  const content = response.data.body?.content || [];
-
-  const paragraphs = content.map((el: any) => {
+function structureParagraphs(content: any[]) {
+  return content.map((el: any) => {
     if (el.paragraph) {
       const text = (el.paragraph.elements || [])
         .map((pe: any) => pe.textRun?.content || "")
@@ -151,8 +142,92 @@ export async function docsGetStructure(email: string, documentId: string) {
       nestingLevel: null,
     };
   });
+}
 
-  return JSON.stringify({ title: response.data.title, paragraphs }, null, 2);
+// Tabs nest (a tab can have childTabs), so this walks the whole tree into one
+// flat, document-ordered list. A tab's own content lives under
+// documentTab.body, not body — that field is unset at this (Tab) level.
+function flattenTabs(
+  tabs: any[],
+): { tabId: string | undefined; title: string | null | undefined; content: any[] }[] {
+  const out: { tabId: string | undefined; title: string | null | undefined; content: any[] }[] = [];
+  for (const tab of tabs || []) {
+    out.push({
+      tabId: tab.tabProperties?.tabId,
+      title: tab.tabProperties?.title,
+      content: tab.documentTab?.body?.content || [],
+    });
+    if (tab.childTabs?.length) out.push(...flattenTabs(tab.childTabs));
+  }
+  return out;
+}
+
+// Flat list of top-level paragraphs with their index range, heading/bullet
+// state, and text — lets a caller target an exact range for the formatting
+// tools below instead of guessing offsets from docsGetContent's plain text.
+// Tables are reported as a single opaque span (no cell-level indexes yet).
+//
+// includeTabsContent is always on: without it, a multi-tab document only
+// returns its first tab in `body`, silently dropping the rest with no sign
+// that anything was left out. With no tabId and more than one tab, this
+// returns a tab index instead of dumping every tab's paragraphs — a 947k
+// character, 38k line response is what "just return everything" produced on
+// the WA Daily Catchup doc (os #1729 follow-up, 27 Oct 2026).
+export async function docsGetStructure(
+  email: string,
+  documentId: string,
+  tabId?: string,
+  limit?: number,
+) {
+  const { client } = await getAuthClient(email);
+  const docs = google.docs({ version: "v1", auth: client });
+  const response = await docs.documents.get({ documentId, includeTabsContent: true });
+  const title = response.data.title;
+
+  const tabs = flattenTabs((response.data as any).tabs || []);
+  // A document with no tabs feature in use carries its content in `body`
+  // instead, with `tabs` left empty even when includeTabsContent is true.
+  const allTabs = tabs.length > 0 ? tabs : [{ tabId: undefined, title, content: response.data.body?.content || [] }];
+
+  if (tabId) {
+    const target = allTabs.find((t) => t.tabId === tabId);
+    if (!target) {
+      const available = allTabs.map((t) => `${t.tabId} (${t.title})`).join(", ") || "none";
+      throw new Error(`No tab "${tabId}" in this document. Available tabs: ${available}`);
+    }
+    return paragraphsResponse(title, target, limit);
+  }
+
+  if (allTabs.length === 1) return paragraphsResponse(title, allTabs[0], limit);
+
+  return JSON.stringify(
+    {
+      title,
+      tabs: allTabs.map((t) => ({ tabId: t.tabId, title: t.title, paragraphCount: t.content.length })),
+      note: "This document has multiple tabs. Pass tabId to get one tab's structure.",
+    },
+    null,
+    2,
+  );
+}
+
+function paragraphsResponse(
+  title: string | null | undefined,
+  tab: { tabId: string | undefined; title: string | null | undefined; content: any[] },
+  limit?: number,
+) {
+  const all = structureParagraphs(tab.content);
+  const paragraphs = limit ? all.slice(0, limit) : all;
+  return JSON.stringify(
+    {
+      title,
+      ...(tab.tabId ? { tabId: tab.tabId, tabTitle: tab.title } : {}),
+      paragraphs,
+      ...(limit && all.length > paragraphs.length ? { truncated: true, totalParagraphs: all.length } : {}),
+    },
+    null,
+    2,
+  );
 }
 
 // Nesting level is inferred by the Docs API from each paragraph's

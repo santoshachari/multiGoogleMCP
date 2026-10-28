@@ -1099,12 +1099,14 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     },
     {
         name: "docs_get_structure",
-        description: "Get the structural layout of a Google Doc: each top-level paragraph's character index range, heading style, and bullet nesting level. Use this (not docs_get_content's plain-text offsets) to find exact ranges for docs_create_bullets, docs_update_paragraph_style, docs_update_text_style, and docs_delete_content_range.",
+        description: "Get the structural layout of a Google Doc: each top-level paragraph's character index range, heading style, and bullet nesting level. Use this (not docs_get_content's plain-text offsets) to find exact ranges for docs_create_bullets, docs_update_paragraph_style, docs_update_text_style, and docs_delete_content_range. If the document has more than one tab and tabId is omitted, this returns a tab index (id, title, paragraph count) instead of every tab's paragraphs — call again with one of those tabIds.",
         inputSchema: {
             type: "object",
             properties: {
                 email: { type: "string", description: "The authenticated Google account." },
-                documentId: { type: "string", description: "The document ID (from its URL or drive_search_files)." }
+                documentId: { type: "string", description: "The document ID (from its URL or drive_search_files)." },
+                tabId: { type: "string", description: "Limit to one tab (from a prior call's tab index). Required once the document has more than one tab." },
+                limit: { type: "number", description: "Return at most this many paragraphs (plus a totalParagraphs count), for a tab too long to return in full." }
             },
             required: ["email", "documentId"]
         }

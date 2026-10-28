@@ -624,7 +624,12 @@ async function dispatch(name: string, args: Args): Promise<string> {
     case "docs_get_structure":
       if (!str(args.email) || !str(args.documentId))
         throw new Error("Missing or invalid arguments for docs_get_structure.");
-      return docs.docsGetStructure(args.email, args.documentId);
+      return docs.docsGetStructure(
+        args.email,
+        args.documentId,
+        str(args.tabId) ? args.tabId : undefined,
+        num(args.limit) ? args.limit : undefined,
+      );
     case "docs_append_text":
       if (!str(args.email) || !str(args.documentId) || !str(args.text))
         throw new Error("Missing or invalid arguments for docs_append_text.");
