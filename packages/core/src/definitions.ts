@@ -754,6 +754,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
                 description: { type: "string", description: "Description or notes for the event." },
                 location: { type: "string", description: "Location of the event." },
                 attendees: { type: "string", description: "Comma-separated list of attendee email addresses." },
+                optionalAttendees: { type: "string", description: "Comma-separated list of attendee email addresses marked optional. An address in both lists is optional; duplicates are ignored regardless of case." },
                 isAllDay: { type: "boolean", description: "If true, startDateTime and endDateTime are treated as dates (YYYY-MM-DD) for an all-day event." },
                 timeZone: { type: "string", description: "Timezone for the event (e.g. 'America/Los_Angeles'). Defaults to account timezone." },
                 addGoogleMeet: { type: "boolean", description: "If true, attaches a Google Meet video conference to the event and returns its join link." },
@@ -781,7 +782,8 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
                 endDateTime: { type: "string", description: "New end date/time in ISO 8601 format." },
                 description: { type: "string", description: "New description." },
                 location: { type: "string", description: "New location." },
-                attendees: { type: "string", description: "Comma-separated list of attendee email addresses (replaces existing)." },
+                attendees: { type: "string", description: "Comma-separated list of attendee email addresses (replaces existing). Guests who stay keep their RSVP status and optional flag." },
+                optionalAttendees: { type: "string", description: "Comma-separated list of attendee email addresses to mark optional (added if missing). If given without attendees, the current guest list is kept. Guests who stay keep their RSVP status." },
                 timeZone: { type: "string", description: "Timezone for the event." },
                 recurrence: {
                     type: "array",

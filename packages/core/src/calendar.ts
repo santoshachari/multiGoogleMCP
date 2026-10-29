@@ -156,6 +156,32 @@ async function enableGeminiNotesForSpace(client: any, meetingCode: string) {
   });
 }
 
+function parseAddressList(list?: string): string[] {
+  return (list || "")
+    .split(",")
+    .map((a) => a.trim())
+    .filter(Boolean);
+}
+
+// De-duplicates ignoring case. An address in both lists is optional.
+function buildAttendees(
+  attendees?: string,
+  optionalAttendees?: string,
+): { email: string; optional?: boolean }[] {
+  const byKey = new Map<string, { email: string; optional?: boolean }>();
+  for (const email of parseAddressList(attendees)) {
+    const key = email.toLowerCase();
+    if (!byKey.has(key)) byKey.set(key, { email });
+  }
+  for (const email of parseAddressList(optionalAttendees)) {
+    const key = email.toLowerCase();
+    const entry = byKey.get(key);
+    if (entry) entry.optional = true;
+    else byKey.set(key, { email, optional: true });
+  }
+  return [...byKey.values()];
+}
+
 export async function calendarCreateEvent(
   email: string,
   calendarId: string,
@@ -170,14 +196,13 @@ export async function calendarCreateEvent(
   addGoogleMeet?: boolean,
   enableGeminiNotes?: boolean,
   recurrence?: string[],
+  optionalAttendees?: string,
 ) {
   const { client, permissions } = await getAuthClient(email);
   assertCalendarCanWrite(permissions, email);
   const calendar = google.calendar({ version: "v3", auth: client });
 
-  const attendeeList = attendees
-    ? attendees.split(",").map((a) => ({ email: a.trim() }))
-    : [];
+  const attendeeList = buildAttendees(attendees, optionalAttendees);
 
   const startObj = isAllDay
     ? { date: startDateTime }
@@ -258,6 +283,7 @@ export async function calendarUpdateEvent(
   addGoogleMeet?: boolean,
   meetLink?: string,
   sendUpdates?: "all" | "externalOnly" | "none",
+  optionalAttendees?: string,
 ) {
   if (addGoogleMeet && meetLink)
     throw new Error("Pass addGoogleMeet or meetLink, not both.");
@@ -267,7 +293,7 @@ export async function calendarUpdateEvent(
   assertCalendarCanWrite(permissions, email);
   const calendar = google.calendar({ version: "v3", auth: client });
 
-  await calendar.events.get({ calendarId, eventId });
+  const existing = await calendar.events.get({ calendarId, eventId });
   const patch: any = {};
   if (title !== undefined) patch.summary = title;
   if (description !== undefined) patch.description = description;
@@ -276,8 +302,29 @@ export async function calendarUpdateEvent(
     patch.start = { dateTime: startDateTime, timeZone };
   if (endDateTime !== undefined)
     patch.end = { dateTime: endDateTime, timeZone };
-  if (attendees !== undefined)
-    patch.attendees = attendees.split(",").map((a) => ({ email: a.trim() }));
+  if (attendees !== undefined || optionalAttendees !== undefined) {
+    const previous = existing.data.attendees || [];
+    // Only optionalAttendees given: keep the current guests and mark those
+    // (adding any that are missing) as optional.
+    const requested = buildAttendees(
+      attendees !== undefined
+        ? attendees
+        : previous.map((a) => a.email).filter(Boolean).join(","),
+      optionalAttendees,
+    );
+    // Replacing the list must not drop RSVP state or the optional flag of
+    // guests who stay on it.
+    patch.attendees = requested.map((r) => {
+      const prev = previous.find(
+        (p) => p.email?.toLowerCase() === r.email.toLowerCase(),
+      );
+      const out: any = { email: r.email };
+      if (prev?.displayName) out.displayName = prev.displayName;
+      if (prev?.responseStatus) out.responseStatus = prev.responseStatus;
+      if (r.optional || prev?.optional) out.optional = true;
+      return out;
+    });
+  }
   // Pass [] to clear an event's recurrence (turn it back into a single event).
   if (recurrence !== undefined) patch.recurrence = recurrence;
 
