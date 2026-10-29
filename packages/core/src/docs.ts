@@ -22,13 +22,40 @@ function extractDocText(content: any[]): string {
   return text;
 }
 
-export async function docsGetContent(email: string, documentId: string) {
+export async function docsGetContent(
+  email: string,
+  documentId: string,
+  tabId?: string,
+) {
   const { client } = await getAuthClient(email);
   const docs = google.docs({ version: "v1", auth: client });
-  const response = await docs.documents.get({ documentId });
-  const text = extractDocText(response.data.body?.content || []);
+
+  // Same reason as docsGetStructure: without includeTabsContent, a multi-tab
+  // document only returns its first tab in `body`, silently dropping the rest.
+  const response = await docs.documents.get({ documentId, includeTabsContent: true });
+  const title = response.data.title;
+  const tabs = flattenTabs((response.data as any).tabs || []);
+  const allTabs = tabs.length > 0 ? tabs : [{ tabId: undefined, title, content: response.data.body?.content || [] }];
+
+  if (tabId) {
+    const target = findTab(allTabs, tabId);
+    return JSON.stringify(
+      { title, tabId: target.tabId, tabTitle: target.title, content: extractDocText(target.content) },
+      null,
+      2,
+    );
+  }
+
+  if (allTabs.length === 1) {
+    return JSON.stringify({ title, content: extractDocText(allTabs[0].content) }, null, 2);
+  }
+
   return JSON.stringify(
-    { title: response.data.title, content: text },
+    {
+      title,
+      tabs: allTabs.map((t) => ({ tabId: t.tabId, title: t.title })),
+      note: "This document has multiple tabs. Pass tabId to get one tab's content.",
+    },
     null,
     2,
   );
@@ -36,10 +63,17 @@ export async function docsGetContent(email: string, documentId: string) {
 
 // The document body always ends with a trailing newline structural element
 // that can't be written into — insert one position before it.
-async function endIndex(docs: any, documentId: string): Promise<number> {
-  const doc = await docs.documents.get({ documentId });
-  const content = doc.data.body?.content || [];
-  const last = content[content.length - 1];
+async function endIndex(docs: any, documentId: string, tabId?: string): Promise<number> {
+  if (!tabId) {
+    const doc = await docs.documents.get({ documentId });
+    const content = doc.data.body?.content || [];
+    const last = content[content.length - 1];
+    return Math.max(1, (last?.endIndex ?? 1) - 1);
+  }
+  const doc = await docs.documents.get({ documentId, includeTabsContent: true });
+  const tabs = flattenTabs((doc.data as any).tabs || []);
+  const target = findTab(tabs, tabId);
+  const last = target.content[target.content.length - 1];
   return Math.max(1, (last?.endIndex ?? 1) - 1);
 }
 
@@ -47,18 +81,19 @@ export async function docsAppendText(
   email: string,
   documentId: string,
   text: string,
+  tabId?: string,
 ) {
   const { client, permissions } = await getAuthClient(email);
   assertDocsCanWrite(permissions, email);
   const docs = google.docs({ version: "v1", auth: client });
-  const index = await endIndex(docs, documentId);
+  const index = await endIndex(docs, documentId, tabId);
   await docs.documents.batchUpdate({
     documentId,
     requestBody: {
-      requests: [{ insertText: { text, location: { index } } }],
+      requests: [{ insertText: { text, location: { index, ...(tabId ? { tabId } : {}) } } }],
     },
   });
-  return `Appended ${text.length} character(s) to the end of the document.`;
+  return `Appended ${text.length} character(s) to the end of the document${tabId ? ` (tab ${tabId})` : ""}.`;
 }
 
 export async function docsInsertText(
@@ -66,6 +101,7 @@ export async function docsInsertText(
   documentId: string,
   text: string,
   index: number,
+  tabId?: string,
 ) {
   const { client, permissions } = await getAuthClient(email);
   assertDocsCanWrite(permissions, email);
@@ -73,10 +109,10 @@ export async function docsInsertText(
   await docs.documents.batchUpdate({
     documentId,
     requestBody: {
-      requests: [{ insertText: { text, location: { index } } }],
+      requests: [{ insertText: { text, location: { index, ...(tabId ? { tabId } : {}) } } }],
     },
   });
-  return `Inserted ${text.length} character(s) at index ${index}.`;
+  return `Inserted ${text.length} character(s) at index ${index}${tabId ? ` (tab ${tabId})` : ""}.`;
 }
 
 export async function docsReplaceText(
@@ -85,6 +121,7 @@ export async function docsReplaceText(
   findText: string,
   replaceText: string,
   matchCase?: boolean,
+  tabId?: string,
 ) {
   const { client, permissions } = await getAuthClient(email);
   assertDocsCanWrite(permissions, email);
@@ -97,6 +134,7 @@ export async function docsReplaceText(
           replaceAllText: {
             containsText: { text: findText, matchCase: matchCase ?? false },
             replaceText,
+            ...(tabId ? { tabsCriteria: { tabIds: [tabId] } } : {}),
           },
         },
       ],
@@ -107,17 +145,8 @@ export async function docsReplaceText(
   return `Replaced ${occurrences} occurrence(s) of "${findText}" with "${replaceText}".`;
 }
 
-// Flat list of top-level paragraphs with their index range, heading/bullet
-// state, and text — lets a caller target an exact range for the formatting
-// tools below instead of guessing offsets from docsGetContent's plain text.
-// Tables are reported as a single opaque span (no cell-level indexes yet).
-export async function docsGetStructure(email: string, documentId: string) {
-  const { client } = await getAuthClient(email);
-  const docs = google.docs({ version: "v1", auth: client });
-  const response = await docs.documents.get({ documentId });
-  const content = response.data.body?.content || [];
-
-  const paragraphs = content.map((el: any) => {
+function structureParagraphs(content: any[]) {
+  return content.map((el: any) => {
     if (el.paragraph) {
       const text = (el.paragraph.elements || [])
         .map((pe: any) => pe.textRun?.content || "")
@@ -151,8 +180,99 @@ export async function docsGetStructure(email: string, documentId: string) {
       nestingLevel: null,
     };
   });
+}
 
-  return JSON.stringify({ title: response.data.title, paragraphs }, null, 2);
+// Tabs nest (a tab can have childTabs), so this walks the whole tree into one
+// flat, document-ordered list. A tab's own content lives under
+// documentTab.body, not body — that field is unset at this (Tab) level.
+function flattenTabs(
+  tabs: any[],
+): { tabId: string | undefined; title: string | null | undefined; content: any[] }[] {
+  const out: { tabId: string | undefined; title: string | null | undefined; content: any[] }[] = [];
+  for (const tab of tabs || []) {
+    out.push({
+      tabId: tab.tabProperties?.tabId,
+      title: tab.tabProperties?.title,
+      content: tab.documentTab?.body?.content || [],
+    });
+    if (tab.childTabs?.length) out.push(...flattenTabs(tab.childTabs));
+  }
+  return out;
+}
+
+function findTab<T extends { tabId: string | undefined; title: string | null | undefined }>(
+  tabs: T[],
+  tabId: string,
+): T {
+  const target = tabs.find((t) => t.tabId === tabId);
+  if (!target) {
+    const available = tabs.map((t) => `${t.tabId} (${t.title})`).join(", ") || "none";
+    throw new Error(`No tab "${tabId}" in this document. Available tabs: ${available}`);
+  }
+  return target;
+}
+
+// Flat list of top-level paragraphs with their index range, heading/bullet
+// state, and text — lets a caller target an exact range for the formatting
+// tools below instead of guessing offsets from docsGetContent's plain text.
+// Tables are reported as a single opaque span (no cell-level indexes yet).
+//
+// includeTabsContent is always on: without it, a multi-tab document only
+// returns its first tab in `body`, silently dropping the rest with no sign
+// that anything was left out. With no tabId and more than one tab, this
+// returns a tab index instead of dumping every tab's paragraphs — a 947k
+// character, 38k line response is what "just return everything" produced on
+// the WA Daily Catchup doc (os #1729 follow-up, 27 Oct 2026).
+export async function docsGetStructure(
+  email: string,
+  documentId: string,
+  tabId?: string,
+  limit?: number,
+) {
+  const { client } = await getAuthClient(email);
+  const docs = google.docs({ version: "v1", auth: client });
+  const response = await docs.documents.get({ documentId, includeTabsContent: true });
+  const title = response.data.title;
+
+  const tabs = flattenTabs((response.data as any).tabs || []);
+  // A document with no tabs feature in use carries its content in `body`
+  // instead, with `tabs` left empty even when includeTabsContent is true.
+  const allTabs = tabs.length > 0 ? tabs : [{ tabId: undefined, title, content: response.data.body?.content || [] }];
+
+  if (tabId) {
+    return paragraphsResponse(title, findTab(allTabs, tabId), limit);
+  }
+
+  if (allTabs.length === 1) return paragraphsResponse(title, allTabs[0], limit);
+
+  return JSON.stringify(
+    {
+      title,
+      tabs: allTabs.map((t) => ({ tabId: t.tabId, title: t.title, paragraphCount: t.content.length })),
+      note: "This document has multiple tabs. Pass tabId to get one tab's structure.",
+    },
+    null,
+    2,
+  );
+}
+
+function paragraphsResponse(
+  title: string | null | undefined,
+  tab: { tabId: string | undefined; title: string | null | undefined; content: any[] },
+  limit?: number,
+) {
+  const all = structureParagraphs(tab.content);
+  const paragraphs = limit ? all.slice(0, limit) : all;
+  return JSON.stringify(
+    {
+      title,
+      ...(tab.tabId ? { tabId: tab.tabId, tabTitle: tab.title } : {}),
+      paragraphs,
+      ...(limit && all.length > paragraphs.length ? { truncated: true, totalParagraphs: all.length } : {}),
+    },
+    null,
+    2,
+  );
 }
 
 // Nesting level is inferred by the Docs API from each paragraph's
@@ -170,17 +290,19 @@ export async function docsCreateBullets(
   endIndex: number,
   nestingLevel: number = 0,
   bulletPreset: string = "BULLET_DISC_CIRCLE_SQUARE",
+  tabId?: string,
 ) {
   const { client, permissions } = await getAuthClient(email);
   assertDocsCanWrite(permissions, email);
   const docs = google.docs({ version: "v1", auth: client });
+  const range = { startIndex, endIndex, ...(tabId ? { tabId } : {}) };
 
   const requests: any[] = [];
   if (nestingLevel > 0) {
     const indentPt = nestingLevel * BULLET_INDENT_PT_PER_LEVEL;
     requests.push({
       updateParagraphStyle: {
-        range: { startIndex, endIndex },
+        range,
         paragraphStyle: {
           indentFirstLine: { magnitude: indentPt, unit: "PT" },
           indentStart: { magnitude: indentPt, unit: "PT" },
@@ -190,7 +312,7 @@ export async function docsCreateBullets(
     });
   }
   requests.push({
-    createParagraphBullets: { range: { startIndex, endIndex }, bulletPreset },
+    createParagraphBullets: { range, bulletPreset },
   });
 
   await docs.documents.batchUpdate({ documentId, requestBody: { requests } });
@@ -203,6 +325,7 @@ export async function docsUpdateParagraphStyle(
   startIndex: number,
   endIndex: number,
   namedStyleType: string,
+  tabId?: string,
 ) {
   const { client, permissions } = await getAuthClient(email);
   assertDocsCanWrite(permissions, email);
@@ -213,7 +336,7 @@ export async function docsUpdateParagraphStyle(
       requests: [
         {
           updateParagraphStyle: {
-            range: { startIndex, endIndex },
+            range: { startIndex, endIndex, ...(tabId ? { tabId } : {}) },
             paragraphStyle: { namedStyleType },
             fields: "namedStyleType",
           },
@@ -232,6 +355,7 @@ export async function docsUpdateTextStyle(
   bold?: boolean,
   italic?: boolean,
   underline?: boolean,
+  tabId?: string,
 ) {
   const { client, permissions } = await getAuthClient(email);
   assertDocsCanWrite(permissions, email);
@@ -263,7 +387,7 @@ export async function docsUpdateTextStyle(
       requests: [
         {
           updateTextStyle: {
-            range: { startIndex, endIndex },
+            range: { startIndex, endIndex, ...(tabId ? { tabId } : {}) },
             textStyle,
             fields: fields.join(","),
           },
@@ -279,6 +403,7 @@ export async function docsDeleteContentRange(
   documentId: string,
   startIndex: number,
   endIndex: number,
+  tabId?: string,
 ) {
   const { client, permissions } = await getAuthClient(email);
   assertDocsCanWrite(permissions, email);
@@ -286,7 +411,7 @@ export async function docsDeleteContentRange(
   await docs.documents.batchUpdate({
     documentId,
     requestBody: {
-      requests: [{ deleteContentRange: { range: { startIndex, endIndex } } }],
+      requests: [{ deleteContentRange: { range: { startIndex, endIndex, ...(tabId ? { tabId } : {}) } } }],
     },
   });
   return `Deleted content range [${startIndex}, ${endIndex}).`;
