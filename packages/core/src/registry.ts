@@ -431,6 +431,7 @@ async function dispatch(name: string, args: Args): Promise<string> {
         bool(args.addGoogleMeet) ? args.addGoogleMeet : false,
         bool(args.enableGeminiNotes) ? args.enableGeminiNotes : false,
         strArray(args.recurrence) ? args.recurrence : undefined,
+        str(args.optionalAttendees) ? args.optionalAttendees : undefined,
       );
     case "calendar_update_event":
       if (!str(args.email) || !str(args.calendarId) || !str(args.eventId))
@@ -456,6 +457,7 @@ async function dispatch(name: string, args: Args): Promise<string> {
           args.sendUpdates === "none"
           ? args.sendUpdates
           : undefined,
+        str(args.optionalAttendees) ? args.optionalAttendees : undefined,
       );
     case "calendar_delete_event":
       if (!str(args.email) || !str(args.calendarId) || !str(args.eventId))

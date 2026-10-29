@@ -156,6 +156,13 @@ async function enableGeminiNotesForSpace(client: any, meetingCode: string) {
   });
 }
 
+function splitEmails(list?: string): string[] {
+  return (list || "")
+    .split(",")
+    .map((a) => a.trim())
+    .filter(Boolean);
+}
+
 export async function calendarCreateEvent(
   email: string,
   calendarId: string,
@@ -170,14 +177,16 @@ export async function calendarCreateEvent(
   addGoogleMeet?: boolean,
   enableGeminiNotes?: boolean,
   recurrence?: string[],
+  optionalAttendees?: string,
 ) {
   const { client, permissions } = await getAuthClient(email);
   assertCalendarCanWrite(permissions, email);
   const calendar = google.calendar({ version: "v3", auth: client });
 
-  const attendeeList = attendees
-    ? attendees.split(",").map((a) => ({ email: a.trim() }))
-    : [];
+  const attendeeList = [
+    ...splitEmails(attendees).map((a) => ({ email: a })),
+    ...splitEmails(optionalAttendees).map((a) => ({ email: a, optional: true })),
+  ];
 
   const startObj = isAllDay
     ? { date: startDateTime }
@@ -258,6 +267,7 @@ export async function calendarUpdateEvent(
   addGoogleMeet?: boolean,
   meetLink?: string,
   sendUpdates?: "all" | "externalOnly" | "none",
+  optionalAttendees?: string,
 ) {
   if (addGoogleMeet && meetLink)
     throw new Error("Pass addGoogleMeet or meetLink, not both.");
@@ -267,7 +277,7 @@ export async function calendarUpdateEvent(
   assertCalendarCanWrite(permissions, email);
   const calendar = google.calendar({ version: "v3", auth: client });
 
-  await calendar.events.get({ calendarId, eventId });
+  const existing = await calendar.events.get({ calendarId, eventId });
   const patch: any = {};
   if (title !== undefined) patch.summary = title;
   if (description !== undefined) patch.description = description;
@@ -276,8 +286,23 @@ export async function calendarUpdateEvent(
     patch.start = { dateTime: startDateTime, timeZone };
   if (endDateTime !== undefined)
     patch.end = { dateTime: endDateTime, timeZone };
-  if (attendees !== undefined)
-    patch.attendees = attendees.split(",").map((a) => ({ email: a.trim() }));
+  // Passing either list replaces the guest list. Anyone already on the event
+  // keeps their entry (optional flag, RSVP status); optionalAttendees forces
+  // optional: true. Anyone in neither list is removed.
+  if (attendees !== undefined || optionalAttendees !== undefined) {
+    const current = new Map(
+      (existing.data.attendees || []).map((a) => [(a.email || "").toLowerCase(), a]),
+    );
+    const optionalSet = new Set(splitEmails(optionalAttendees).map((a) => a.toLowerCase()));
+    const seen = new Set<string>();
+    patch.attendees = [...splitEmails(attendees), ...splitEmails(optionalAttendees)]
+      .filter((a) => !seen.has(a.toLowerCase()) && seen.add(a.toLowerCase()))
+      .map((a) => {
+        const entry: any = { ...(current.get(a.toLowerCase()) ?? { email: a }) };
+        if (optionalSet.has(a.toLowerCase())) entry.optional = true;
+        return entry;
+      });
+  }
   // Pass [] to clear an event's recurrence (turn it back into a single event).
   if (recurrence !== undefined) patch.recurrence = recurrence;
 
