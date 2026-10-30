@@ -1105,13 +1105,15 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     },
     {
         name: "docs_get_content",
-        description: "Read the plain-text content of a Google Doc. If the document has more than one tab and tabId is omitted, this returns a tab index (id, title) instead of guessing which tab you mean — call again with one of those tabIds.",
+        description: "Read the content of a Google Doc as plain text, or as Markdown (headings, bold/italic, links, nested bullets and numbered lists). Use format=markdown with tabId and limit to cheaply read the top of one tab of a long document. If the document has more than one tab and tabId is omitted, this returns a tab index (id, title) instead of guessing which tab you mean — call again with one of those tabIds.",
         inputSchema: {
             type: "object",
             properties: {
                 email: { type: "string", description: "The authenticated Google account." },
                 documentId: { type: "string", description: "The document ID (from its URL or drive_search_files)." },
-                tabId: { type: "string", description: "Limit to one tab (from a prior call's tab index, or from docs_get_structure). Required once the document has more than one tab." }
+                tabId: { type: "string", description: "Limit to one tab (from a prior call's tab index, or from docs_get_structure). Required once the document has more than one tab." },
+                format: { type: "string", enum: ["text", "markdown"], description: "Output format. Default 'text'." },
+                limit: { type: "number", description: "Return at most this many characters from the start of the content (adds truncated and totalCharacters when cut)." }
             },
             required: ["email", "documentId"]
         }
