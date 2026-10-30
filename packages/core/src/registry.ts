@@ -118,6 +118,16 @@ export function toolService(
   return null;
 }
 
+function bodyOptions(args: Args): gmail.BodyOptions {
+  return {
+    stripQuotedReplies: bool(args.stripQuotedReplies) ? args.stripQuotedReplies : undefined,
+    maxBodyChars:
+      num(args.maxBodyChars) && args.maxBodyChars > 0
+        ? Math.floor(args.maxBodyChars)
+        : undefined,
+  };
+}
+
 async function dispatch(name: string, args: Args): Promise<string> {
   const contentType = args.contentType as
     | "text"
@@ -142,11 +152,11 @@ async function dispatch(name: string, args: Args): Promise<string> {
     case "gmail_read":
       if (!str(args.email) || !str(args.messageId))
         throw new Error("Missing or invalid arguments for gmail_read.");
-      return gmail.readEmail(args.email, args.messageId);
+      return gmail.readEmail(args.email, args.messageId, bodyOptions(args));
     case "gmail_read_thread":
       if (!str(args.email) || !str(args.threadId))
         throw new Error("Missing or invalid arguments for gmail_read_thread.");
-      return gmail.readThread(args.email, args.threadId);
+      return gmail.readThread(args.email, args.threadId, bodyOptions(args));
     case "gmail_draft":
       if (!str(args.email) || !str(args.to) || !str(args.subject) || !str(args.body))
         throw new Error("Missing or invalid arguments for gmail_draft.");

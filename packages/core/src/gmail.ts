@@ -79,20 +79,73 @@ export async function searchEmails(
   );
 }
 
-export function extractText(part: any): string {
+export interface BodyOptions {
+  /** Drop ">" quoted lines and the "On <date>, <name> wrote:" block after them. */
+  stripQuotedReplies?: boolean;
+  /** Cut the body at this many characters, with a note saying so. */
+  maxBodyChars?: number;
+}
+
+// "On <date>, <name> wrote:" / "Em <data>, <nome> escreveu:". Mail clients
+// sometimes wrap the header onto a second line, so a line is also tested
+// joined with the next one.
+const WROTE_HEADER = /^\s*(on|em)\s.{0,300}\s(wrote|escreveu):\s*$/i;
+
+export function trimBody(text: string, opts: BodyOptions = {}): string {
+  let out = text;
+  if (opts.stripQuotedReplies) {
+    const lines = out.split(/\r?\n/);
+    const kept: string[] = [];
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (
+        WROTE_HEADER.test(line) ||
+        (i + 1 < lines.length && WROTE_HEADER.test(`${line} ${lines[i + 1].trim()}`))
+      ) {
+        break;
+      }
+      if (line.trimStart().startsWith(">")) continue;
+      kept.push(line);
+    }
+    out = kept.join("\n").trim();
+  }
+  if (opts.maxBodyChars !== undefined && out.length > opts.maxBodyChars) {
+    out =
+      out.slice(0, opts.maxBodyChars) +
+      `\n[truncated: showing first ${opts.maxBodyChars} of ${out.length} characters]`;
+  }
+  return out;
+}
+
+export function extractText(part: any, stripQuotedReplies = false): string {
   if (part.mimeType === "text/plain" && part.body?.data) {
     return Buffer.from(part.body.data, "base64").toString("utf-8");
   }
 
   if (part.parts) {
     for (const p of part.parts) {
-      const text = extractText(p);
+      const text = extractText(p, stripQuotedReplies);
       if (text) return text;
     }
   }
 
   if (part.mimeType === "text/html" && part.body?.data) {
     const html = Buffer.from(part.body.data, "base64").toString("utf-8");
+    if (stripQuotedReplies) {
+      // Everything from the first quote container on is quoted history. Keep
+      // line breaks so trimBody can see "wrote:" lines and ">" prefixes.
+      return html
+        .replace(/<div[^>]*class="[^"]*gmail_quote[^"]*"[\s\S]*$/i, "")
+        .replace(/<blockquote[\s\S]*$/i, "")
+        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+        .replace(/<br\s*\/?>|<\/(div|p|tr|li|h[1-6])>/gi, "\n")
+        .replace(/<[^>]+>/g, "")
+        .replace(/[ \t\r\f\v]+/g, " ")
+        .replace(/ ?\n ?/g, "\n")
+        .replace(/\n{3,}/g, "\n\n")
+        .trim();
+    }
     return html
       .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
       .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
@@ -128,7 +181,11 @@ export function collectAttachments(
   }
 }
 
-export async function readEmail(email: string, messageId: string) {
+export async function readEmail(
+  email: string,
+  messageId: string,
+  opts: BodyOptions = {},
+) {
   const { client } = await getAuthClient(email);
   const gmail = google.gmail({ version: "v1", auth: client });
 
@@ -141,10 +198,11 @@ export async function readEmail(email: string, messageId: string) {
   const payload = response.data.payload;
   if (!payload) return "Could not retrieve email payload.";
 
-  let textContent = extractText(payload);
+  let textContent = extractText(payload, opts.stripQuotedReplies);
   if (!textContent && response.data.snippet) {
     textContent = response.data.snippet;
   }
+  textContent = trimBody(textContent, opts);
 
   const attachments: Array<{
     filename: string;
@@ -221,7 +279,11 @@ export async function getAttachment(
   });
 }
 
-export async function readThread(email: string, threadId: string) {
+export async function readThread(
+  email: string,
+  threadId: string,
+  opts: BodyOptions = {},
+) {
   const { client } = await getAuthClient(email);
   const gmail = google.gmail({ version: "v1", auth: client });
 
@@ -262,7 +324,10 @@ export async function readThread(email: string, threadId: string) {
       unread: labelIds.includes("UNREAD"),
       starred: labelIds.includes("STARRED"),
       labelIds,
-      body: extractText(payload) || msg.snippet || "",
+      body: trimBody(
+        extractText(payload, opts.stripQuotedReplies) || msg.snippet || "",
+        opts,
+      ),
       attachments,
     };
   });

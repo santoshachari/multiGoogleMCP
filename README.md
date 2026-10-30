@@ -176,8 +176,8 @@ If you run into module resolution errors, set the `NODE_PATH` environment variab
 |---|---|
 | `gmail_list_accounts` | List all authenticated accounts |
 | `gmail_search` | Search emails using Gmail search operators |
-| `gmail_read` | Read the full content of an email by ID |
-| `gmail_read_thread` | Read all messages in a thread/conversation |
+| `gmail_read` | Read the full content of an email by ID (optional `stripQuotedReplies`, `maxBodyChars`) |
+| `gmail_read_thread` | Read all messages in a thread/conversation (optional `stripQuotedReplies`, `maxBodyChars`) |
 | `gmail_draft` | Create a draft email (supports cc, bcc, attachments) |
 | `gmail_send` | Send an email (supports cc, bcc, attachments) |
 | `gmail_reply` | Reply to an email within its thread (send or draft) |
