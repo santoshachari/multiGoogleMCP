@@ -22,10 +22,69 @@ function extractDocText(content: any[]): string {
   return text;
 }
 
+// Renders structural elements as markdown: headings as #, bullets as "- " (or
+// "1. " for numbered glyphs) indented two spaces per nesting level, bold as
+// **...**. Table cells are flattened to paragraphs, like extractDocText.
+function extractDocMarkdown(content: any[], lists: any = {}): string {
+  let out = "";
+  for (const el of content || []) {
+    if (el.table) {
+      for (const row of el.table.tableRows || []) {
+        for (const cell of row.tableCells || []) out += extractDocMarkdown(cell.content, lists);
+      }
+      continue;
+    }
+    if (!el.paragraph) continue;
+    let text = "";
+    for (const pe of el.paragraph.elements || []) {
+      const run = pe.textRun?.content;
+      if (!run) continue;
+      const body = run.replace(/\n$/, "");
+      if (pe.textRun.textStyle?.bold && body.trim()) {
+        // Keep surrounding whitespace outside the markers so ** renders.
+        const m = body.match(/^(\s*)([\s\S]*?)(\s*)$/)!;
+        text += `${m[1]}**${m[2]}**${m[3]}`;
+      } else {
+        text += body;
+      }
+    }
+    const style = el.paragraph.paragraphStyle?.namedStyleType ?? "NORMAL_TEXT";
+    const heading = /^HEADING_(\d)$/.exec(style);
+    const bullet = el.paragraph.bullet;
+    if (bullet) {
+      const level = bullet.nestingLevel ?? 0;
+      const glyph = lists?.[bullet.listId]?.listProperties?.nestingLevels?.[level]?.glyphType;
+      const marker = glyph && /^(DECIMAL|ZERO_DECIMAL|ALPHA|UPPER_ALPHA|ROMAN|UPPER_ROMAN)$/.test(glyph) ? "1." : "-";
+      out += `${"  ".repeat(level)}${marker} ${text}\n`;
+    } else if (heading) {
+      out += `${"#".repeat(Number(heading[1]))} ${text}\n`;
+    } else if (style === "TITLE") {
+      out += `# ${text}\n`;
+    } else {
+      out += `${text}\n`;
+    }
+  }
+  return out;
+}
+
+function renderTab(
+  tab: { content: any[]; lists?: any },
+  format: "text" | "markdown",
+  maxChars?: number,
+) {
+  const full = format === "markdown" ? extractDocMarkdown(tab.content, tab.lists) : extractDocText(tab.content);
+  if (maxChars && full.length > maxChars) {
+    return { content: full.slice(0, maxChars), truncated: true, totalChars: full.length };
+  }
+  return { content: full };
+}
+
 export async function docsGetContent(
   email: string,
   documentId: string,
   tabId?: string,
+  format: "text" | "markdown" = "text",
+  maxChars?: number,
 ) {
   const { client } = await getAuthClient(email);
   const docs = google.docs({ version: "v1", auth: client });
@@ -35,19 +94,22 @@ export async function docsGetContent(
   const response = await docs.documents.get({ documentId, includeTabsContent: true });
   const title = response.data.title;
   const tabs = flattenTabs((response.data as any).tabs || []);
-  const allTabs = tabs.length > 0 ? tabs : [{ tabId: undefined, title, content: response.data.body?.content || [] }];
+  const allTabs: { tabId: string | undefined; title: string | null | undefined; content: any[]; lists?: any }[] =
+    tabs.length > 0
+      ? tabs
+      : [{ tabId: undefined, title, content: response.data.body?.content || [], lists: (response.data as any).lists }];
 
   if (tabId) {
     const target = findTab(allTabs, tabId);
     return JSON.stringify(
-      { title, tabId: target.tabId, tabTitle: target.title, content: extractDocText(target.content) },
+      { title, tabId: target.tabId, tabTitle: target.title, ...renderTab(target, format, maxChars) },
       null,
       2,
     );
   }
 
   if (allTabs.length === 1) {
-    return JSON.stringify({ title, content: extractDocText(allTabs[0].content) }, null, 2);
+    return JSON.stringify({ title, ...renderTab(allTabs[0], format, maxChars) }, null, 2);
   }
 
   return JSON.stringify(
@@ -187,13 +249,14 @@ function structureParagraphs(content: any[]) {
 // documentTab.body, not body — that field is unset at this (Tab) level.
 function flattenTabs(
   tabs: any[],
-): { tabId: string | undefined; title: string | null | undefined; content: any[] }[] {
-  const out: { tabId: string | undefined; title: string | null | undefined; content: any[] }[] = [];
+): { tabId: string | undefined; title: string | null | undefined; content: any[]; lists?: any }[] {
+  const out: { tabId: string | undefined; title: string | null | undefined; content: any[]; lists?: any }[] = [];
   for (const tab of tabs || []) {
     out.push({
       tabId: tab.tabProperties?.tabId,
       title: tab.tabProperties?.title,
       content: tab.documentTab?.body?.content || [],
+      lists: tab.documentTab?.lists,
     });
     if (tab.childTabs?.length) out.push(...flattenTabs(tab.childTabs));
   }

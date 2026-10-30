@@ -626,6 +626,8 @@ async function dispatch(name: string, args: Args): Promise<string> {
         args.email,
         args.documentId,
         str(args.tabId) ? args.tabId : undefined,
+        args.format === "markdown" ? "markdown" : "text",
+        num(args.maxChars) && args.maxChars > 0 ? args.maxChars : undefined,
       );
     case "docs_get_structure":
       if (!str(args.email) || !str(args.documentId))

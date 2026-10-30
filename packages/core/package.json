@@ -9,7 +9,7 @@
   "scripts": {
     "build": "tsc",
     "prepare": "tsc",
-    "test": "node test/smoke.cjs && node test/docs-tabs.cjs && node test/calendar-optional.cjs"
+    "test": "node test/smoke.cjs && node test/docs-tabs.cjs && node test/docs-content-markdown.cjs &&node test/calendar-optional.cjs"
   },
   "dependencies": {
     "googleapis": "^173.0.0",
