@@ -756,7 +756,12 @@ async function dispatch(name: string, args: Args): Promise<string> {
     case "docs_batch_update":
       if (!str(args.email) || !str(args.documentId) || !Array.isArray(args.requests))
         throw new Error("Missing or invalid arguments for docs_batch_update.");
-      return docs.docsBatchUpdate(args.email, args.documentId, args.requests);
+      return docs.docsBatchUpdate(
+        args.email,
+        args.documentId,
+        args.requests,
+        str(args.requiredRevisionId) ? args.requiredRevisionId : undefined,
+      );
 
     default:
       throw new Error(`Unknown or unimplemented tool: ${name}`);
