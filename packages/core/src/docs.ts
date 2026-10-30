@@ -34,25 +34,27 @@ export async function docsGetContent(
   // document only returns its first tab in `body`, silently dropping the rest.
   const response = await docs.documents.get({ documentId, includeTabsContent: true });
   const title = response.data.title;
+  const revisionId = response.data.revisionId ?? undefined;
   const tabs = flattenTabs((response.data as any).tabs || []);
   const allTabs = tabs.length > 0 ? tabs : [{ tabId: undefined, title, content: response.data.body?.content || [] }];
 
   if (tabId) {
     const target = findTab(allTabs, tabId);
     return JSON.stringify(
-      { title, tabId: target.tabId, tabTitle: target.title, content: extractDocText(target.content) },
+      { title, revisionId, tabId: target.tabId, tabTitle: target.title, content: extractDocText(target.content) },
       null,
       2,
     );
   }
 
   if (allTabs.length === 1) {
-    return JSON.stringify({ title, content: extractDocText(allTabs[0].content) }, null, 2);
+    return JSON.stringify({ title, revisionId, content: extractDocText(allTabs[0].content) }, null, 2);
   }
 
   return JSON.stringify(
     {
       title,
+      revisionId,
       tabs: allTabs.map((t) => ({ tabId: t.tabId, title: t.title })),
       note: "This document has multiple tabs. Pass tabId to get one tab's content.",
     },
@@ -233,6 +235,7 @@ export async function docsGetStructure(
   const docs = google.docs({ version: "v1", auth: client });
   const response = await docs.documents.get({ documentId, includeTabsContent: true });
   const title = response.data.title;
+  const revisionId = response.data.revisionId ?? undefined;
 
   const tabs = flattenTabs((response.data as any).tabs || []);
   // A document with no tabs feature in use carries its content in `body`
@@ -240,14 +243,15 @@ export async function docsGetStructure(
   const allTabs = tabs.length > 0 ? tabs : [{ tabId: undefined, title, content: response.data.body?.content || [] }];
 
   if (tabId) {
-    return paragraphsResponse(title, findTab(allTabs, tabId), limit);
+    return paragraphsResponse(title, revisionId, findTab(allTabs, tabId), limit);
   }
 
-  if (allTabs.length === 1) return paragraphsResponse(title, allTabs[0], limit);
+  if (allTabs.length === 1) return paragraphsResponse(title, revisionId, allTabs[0], limit);
 
   return JSON.stringify(
     {
       title,
+      revisionId,
       tabs: allTabs.map((t) => ({ tabId: t.tabId, title: t.title, paragraphCount: t.content.length })),
       note: "This document has multiple tabs. Pass tabId to get one tab's structure.",
     },
@@ -258,6 +262,7 @@ export async function docsGetStructure(
 
 function paragraphsResponse(
   title: string | null | undefined,
+  revisionId: string | undefined,
   tab: { tabId: string | undefined; title: string | null | undefined; content: any[] },
   limit?: number,
 ) {
@@ -266,6 +271,7 @@ function paragraphsResponse(
   return JSON.stringify(
     {
       title,
+      revisionId,
       ...(tab.tabId ? { tabId: tab.tabId, tabTitle: tab.title } : {}),
       paragraphs,
       ...(limit && all.length > paragraphs.length ? { truncated: true, totalParagraphs: all.length } : {}),
@@ -425,17 +431,37 @@ export async function docsDeleteContentRange(
 // exists after every prior request in the same array* — so a caller can
 // compute all ranges once from a single docs_get_structure snapshot without
 // re-fetching between steps, unlike chaining the narrower docs_* tools.
+//
+// requiredRevisionId (the revisionId a read tool returned) makes the write
+// conditional: Google rejects the whole batch, writing nothing, if the
+// document has been edited since (os #1912 — stale indexes from a concurrent
+// human edit merged a heading into the next line).
 export async function docsBatchUpdate(
   email: string,
   documentId: string,
   requests: unknown[],
+  requiredRevisionId?: string,
 ) {
   const { client, permissions } = await getAuthClient(email);
   assertDocsCanWrite(permissions, email);
   const docs = google.docs({ version: "v1", auth: client });
-  const response = await docs.documents.batchUpdate({
-    documentId,
-    requestBody: { requests: requests as any[] },
-  });
+  let response;
+  try {
+    response = await docs.documents.batchUpdate({
+      documentId,
+      requestBody: {
+        requests: requests as any[],
+        ...(requiredRevisionId ? { writeControl: { requiredRevisionId } } : {}),
+      },
+    });
+  } catch (e: any) {
+    if (requiredRevisionId && /revision/i.test(String(e?.message))) {
+      throw new Error(
+        "The document changed since it was read (revision mismatch), so nothing was written. " +
+          "Re-read it with docs_get_structure, recompute the indexes, and retry with the new revisionId.",
+      );
+    }
+    throw e;
+  }
   return JSON.stringify({ replies: response.data.replies ?? [] }, null, 2);
 }

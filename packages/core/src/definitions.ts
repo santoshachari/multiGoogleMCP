@@ -1089,7 +1089,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     },
     {
         name: "docs_get_content",
-        description: "Read the plain-text content of a Google Doc. If the document has more than one tab and tabId is omitted, this returns a tab index (id, title) instead of guessing which tab you mean — call again with one of those tabIds.",
+        description: "Read the plain-text content of a Google Doc. If the document has more than one tab and tabId is omitted, this returns a tab index (id, title) instead of guessing which tab you mean — call again with one of those tabIds. The response includes the document's revisionId.",
         inputSchema: {
             type: "object",
             properties: {
@@ -1102,7 +1102,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     },
     {
         name: "docs_get_structure",
-        description: "Get the structural layout of a Google Doc: each top-level paragraph's character index range, heading style, and bullet nesting level. Use this (not docs_get_content's plain-text offsets) to find exact ranges for docs_create_bullets, docs_update_paragraph_style, docs_update_text_style, and docs_delete_content_range. If the document has more than one tab and tabId is omitted, this returns a tab index (id, title, paragraph count) instead of every tab's paragraphs — call again with one of those tabIds.",
+        description: "Get the structural layout of a Google Doc: each top-level paragraph's character index range, heading style, and bullet nesting level. Use this (not docs_get_content's plain-text offsets) to find exact ranges for docs_create_bullets, docs_update_paragraph_style, docs_update_text_style, and docs_delete_content_range. If the document has more than one tab and tabId is omitted, this returns a tab index (id, title, paragraph count) instead of every tab's paragraphs — call again with one of those tabIds. The response includes the document's revisionId — pass it as requiredRevisionId to docs_batch_update so the write fails instead of landing in the wrong place if someone edits the doc in between.",
         inputSchema: {
             type: "object",
             properties: {
@@ -1237,7 +1237,8 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
                     type: "array",
                     description: "An array of Docs API request objects, each with exactly one key naming the request type (e.g. { \"insertText\": { \"text\": \"hi\", \"location\": { \"index\": 1 } } }), applied in order.",
                     items: { type: "object" }
-                }
+                },
+                requiredRevisionId: { type: "string", description: "Optional. The revisionId returned by docs_get_structure or docs_get_content. If the document has been edited since, the call fails with a 'document changed' error and writes nothing — re-read and retry. Strongly recommended for shared documents people may be editing at the same time." }
             },
             required: ["email", "documentId", "requests"]
         }
