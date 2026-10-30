@@ -57,6 +57,14 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
                 messageId: {
                     type: "string",
                     description: "The ID of the message to read."
+                },
+                stripQuotedReplies: {
+                    type: "boolean",
+                    description: "If true, drop quoted reply history (lines starting with '>' and the 'On <date>, <name> wrote:' / 'Em <data>, <nome> escreveu:' block and everything after it). Use gmail_read_thread for earlier messages. Default false."
+                },
+                maxBodyChars: {
+                    type: "number",
+                    description: "Cut the body at this many characters; a note says when it was cut. Default: no limit."
                 }
             },
             required: ["email", "messageId"]
@@ -459,6 +467,14 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
                 threadId: {
                     type: "string",
                     description: "The thread ID (from gmail_read threadId field or gmail_search threadId field)."
+                },
+                stripQuotedReplies: {
+                    type: "boolean",
+                    description: "If true, drop quoted reply history from each message's body (lines starting with '>' and the 'On <date>, <name> wrote:' / 'Em <data>, <nome> escreveu:' block and everything after it). Default false."
+                },
+                maxBodyChars: {
+                    type: "number",
+                    description: "Cut each message body at this many characters; a note says when it was cut. Default: no limit."
                 }
             },
             required: ["email", "threadId"]
