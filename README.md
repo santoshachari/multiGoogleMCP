@@ -281,3 +281,7 @@ Example — drafting a Markdown email:
 ```
 
 The resulting email renders as formatted HTML in Gmail.
+
+## Tests
+
+New tests go in `packages/core/test/*.cjs` and are picked up automatically by `npm --prefix packages/core test` (no package.json change needed).

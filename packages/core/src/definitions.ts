@@ -1255,7 +1255,8 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
                     type: "array",
                     description: "An array of Docs API request objects, each with exactly one key naming the request type (e.g. { \"insertText\": { \"text\": \"hi\", \"location\": { \"index\": 1 } } }), applied in order.",
                     items: { type: "object" }
-                }
+                },
+                requiredRevisionId: { type: "string", description: "Optional. The revisionId returned by docs_get_structure. If the document has changed since, nothing is written and an error asks you to re-read and retry. Use this when other people may be editing the document." }
             },
             required: ["email", "documentId", "requests"]
         }
